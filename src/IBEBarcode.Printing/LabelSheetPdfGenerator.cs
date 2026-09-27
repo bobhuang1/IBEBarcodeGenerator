@@ -19,8 +19,8 @@ public static class LabelSheetPdfGenerator
 
         var document = new PdfDocument();
         var page = document.AddPage();
-        page.Width = template.PageWidthMm * PointsPerMillimeter;
-        page.Height = template.PageHeightMm * PointsPerMillimeter;
+        page.Width = XUnit.FromPoint(template.PageWidthMm * PointsPerMillimeter);
+        page.Height = XUnit.FromPoint(template.PageHeightMm * PointsPerMillimeter);
 
         using var gfx = XGraphics.FromPdfPage(page);
 
