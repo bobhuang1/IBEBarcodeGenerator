@@ -14,4 +14,5 @@ public enum BarcodeSymbology
     Code39Extended,
     Code128,
     Postnet,
+    QrCode,
 }
