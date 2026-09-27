@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/IBEBarcode.Core/IBEBarcode.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/IBEBarcode.Core.Tests/IBEBarcode.Core.Tests.csproj" />
+  </Folder>
+</Solution>
