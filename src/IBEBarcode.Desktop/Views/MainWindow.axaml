@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:IBEBarcode.Desktop.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="500"
+        x:Class="IBEBarcode.Desktop.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="700" Height="500"
+        Title="IBE Barcode Generator">
+
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <StackPanel Margin="16" Spacing="12">
+        <TextBlock Text="IBE Barcode Generator" FontSize="20" FontWeight="Bold" />
+
+        <TextBox PlaceholderText="Value to encode" Text="{Binding InputText}" />
+
+        <ComboBox ItemsSource="{Binding AvailableSymbologies}" SelectedItem="{Binding SelectedSymbology}" />
+
+        <TextBlock Text="{Binding ErrorMessage}"
+                   Foreground="Red"
+                   TextWrapping="Wrap" />
+
+        <Border BorderBrush="Gray" BorderThickness="1" Padding="8" HorizontalAlignment="Left">
+            <Image Source="{Binding PreviewImage}" MaxWidth="600" />
+        </Border>
+    </StackPanel>
+
+</Window>

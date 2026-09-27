@@ -46,7 +46,15 @@ Expected: builds cleanly (this confirms the template + new project references re
 
 - [ ] **Step 3: Replace the view model**
 
-Replace `src/IBEBarcode.Desktop/ViewModels/MainWindowViewModel.cs` with:
+The `avalonia.mvvm` template actually names the generated view model
+`MainViewModel` (not `MainWindowViewModel`) and, on the version this plan
+was built against (Avalonia 12.1.3 / CommunityToolkit.Mvvm 8.4.2), uses
+the newer partial-property `[ObservableProperty]` syntax
+(`public partial string X { get; set; }`) rather than the older
+backing-field style. Match whatever the actual scaffolded
+`MainViewModel.cs` looks like — check it before overwriting.
+
+Replace `src/IBEBarcode.Desktop/ViewModels/MainViewModel.cs` with:
 
 ```csharp
 using System;
@@ -72,24 +80,24 @@ public enum SupportedSymbology
     QrCode,
 }
 
-public partial class MainWindowViewModel : ViewModelBase
+public partial class MainViewModel : ViewModelBase
 {
     [ObservableProperty]
-    private string _inputText = "HELLO123";
+    public partial string InputText { get; set; } = "HELLO123";
 
     [ObservableProperty]
-    private SupportedSymbology _selectedSymbology = SupportedSymbology.Code39;
+    public partial SupportedSymbology SelectedSymbology { get; set; } = SupportedSymbology.Code39;
 
     [ObservableProperty]
-    private Bitmap? _previewImage;
+    public partial Bitmap? PreviewImage { get; set; }
 
     [ObservableProperty]
-    private string? _errorMessage;
+    public partial string? ErrorMessage { get; set; }
 
     public IReadOnlyList<SupportedSymbology> AvailableSymbologies { get; } =
         Enum.GetValues<SupportedSymbology>();
 
-    public MainWindowViewModel()
+    public MainViewModel()
     {
         Regenerate();
     }
@@ -161,17 +169,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
 - [ ] **Step 4: Replace the main window view**
 
-Replace the `<StackPanel>` (or equivalent root content) inside `src/IBEBarcode.Desktop/Views/MainWindow.axaml` with:
+Replace the root content inside `src/IBEBarcode.Desktop/Views/MainWindow.axaml` (and set `Width="700" Height="500"` and `Title="IBE Barcode Generator"` on the `<Window>` element) with:
 
 ```xml
 <StackPanel Margin="16" Spacing="12">
     <TextBlock Text="IBE Barcode Generator" FontSize="20" FontWeight="Bold" />
 
-    <TextBox Watermark="Value to encode" Text="{Binding InputText}" />
+    <TextBox PlaceholderText="Value to encode" Text="{Binding InputText}" />
 
     <ComboBox ItemsSource="{Binding AvailableSymbologies}" SelectedItem="{Binding SelectedSymbology}" />
 
-    <TextBlock Text="{Binding ErrorMessage}" Foreground="Red" TextWrapping="Wrap" IsVisible="{Binding ErrorMessage, Converter={x:Static ObjectConverters.IsNotNull}}" />
+    <TextBlock Text="{Binding ErrorMessage}" Foreground="Red" TextWrapping="Wrap" />
 
     <Border BorderBrush="Gray" BorderThickness="1" Padding="8" HorizontalAlignment="Left">
         <Image Source="{Binding PreviewImage}" MaxWidth="600" />
@@ -179,7 +187,9 @@ Replace the `<StackPanel>` (or equivalent root content) inside `src/IBEBarcode.D
 </StackPanel>
 ```
 
-Make sure the `<Window>` root element in that file has the `xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"` namespace (the template includes this by default) so `x:Static` resolves, and add `Width="700" Height="500"` on the `<Window>` element if not already sized.
+A null `ErrorMessage` just renders no text — no visibility converter needed
+(avoids depending on `ObjectConverters`' exact namespace-import
+requirements for no real benefit).
 
 - [ ] **Step 5: Build and smoke-run the app**
 

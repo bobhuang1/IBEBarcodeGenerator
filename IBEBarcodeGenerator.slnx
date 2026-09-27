@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/IBEBarcode.Core/IBEBarcode.Core.csproj" />
+    <Project Path="src/IBEBarcode.Desktop/IBEBarcode.Desktop.csproj" />
     <Project Path="src/IBEBarcode.Printing/IBEBarcode.Printing.csproj" />
     <Project Path="src/IBEBarcode.Rendering/IBEBarcode.Rendering.csproj" />
     <Project Path="src/IBEBarcode.Templates/IBEBarcode.Templates.csproj" />
