@@ -26,5 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\IBEBarcode.Core\IBEBarcode.Core.csproj" />
     <ProjectReference Include="..\IBEBarcode.Rendering\IBEBarcode.Rendering.csproj" />
+    <ProjectReference Include="..\IBEBarcode.Templates\IBEBarcode.Templates.csproj" />
+    <ProjectReference Include="..\IBEBarcode.Printing\IBEBarcode.Printing.csproj" />
   </ItemGroup>
 </Project>

@@ -5,7 +5,9 @@ using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using IBEBarcode.Core;
 using IBEBarcode.Core.Encoders;
+using IBEBarcode.Printing;
 using IBEBarcode.Rendering;
+using IBEBarcode.Templates;
 
 namespace IBEBarcode.Desktop.ViewModels;
 
@@ -39,12 +41,49 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? ErrorMessage { get; set; }
 
+    [ObservableProperty]
+    public partial PaperTemplate? SelectedTemplate { get; set; }
+
     public IReadOnlyList<SupportedSymbology> AvailableSymbologies { get; } =
         Enum.GetValues<SupportedSymbology>();
 
+    public IReadOnlyList<PaperTemplate> AvailableTemplates { get; } =
+        PaperTemplateCatalog.AllTemplates;
+
+    private byte[]? _lastPngBytes;
+
     public MainViewModel()
     {
+        SelectedTemplate = AvailableTemplates.Count > 0 ? AvailableTemplates[0] : null;
         Regenerate();
+    }
+
+    public bool TryGenerateLabelSheetPdf(out byte[]? pdfBytes, out string? error)
+    {
+        pdfBytes = null;
+
+        if (_lastPngBytes is null)
+        {
+            error = "Generate a valid barcode before exporting a label sheet.";
+            return false;
+        }
+
+        if (SelectedTemplate is null)
+        {
+            error = "Select a paper template before exporting a label sheet.";
+            return false;
+        }
+
+        var images = new List<byte[]>();
+
+        for (var i = 0; i < SelectedTemplate.LabelCount; i++)
+        {
+            images.Add(_lastPngBytes);
+        }
+
+        pdfBytes = LabelSheetPdfGenerator.Generate(SelectedTemplate, images);
+        error = null;
+        return true;
     }
 
     partial void OnInputTextChanged(string value) => Regenerate();
@@ -55,6 +94,7 @@ public partial class MainViewModel : ViewModelBase
     {
         ErrorMessage = null;
         PreviewImage = null;
+        _lastPngBytes = null;
 
         if (string.IsNullOrEmpty(InputText))
         {
@@ -105,6 +145,7 @@ public partial class MainViewModel : ViewModelBase
                 pngBytes = BarcodeRenderer.RenderToPng(pattern!, new BarcodeRenderOptions { ModuleWidthPixels = 2, QuietZoneModules = 10, BarHeightPixels = 80 });
             }
 
+            _lastPngBytes = pngBytes;
             using var stream = new MemoryStream(pngBytes);
             PreviewImage = new Bitmap(stream);
         }

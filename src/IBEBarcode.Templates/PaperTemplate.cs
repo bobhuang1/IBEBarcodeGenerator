@@ -29,4 +29,6 @@ public sealed class PaperTemplate
         var y = TopMarginMm + row * (LabelHeightMm + VerticalGapMm);
         return (x, y);
     }
+
+    public override string ToString() => $"{Vendor} {Code} ({Columns}x{Rows}, {LabelCount} labels)";
 }
