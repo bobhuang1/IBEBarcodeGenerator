@@ -84,4 +84,93 @@ public class Code128EncoderTests
         Assert.Null(pattern);
         Assert.NotNull(error);
     }
+
+    [Fact]
+    public void TryEncode_SetB_DefaultConstructor_StillMatchesPriorBehavior()
+    {
+        var defaultEncoder = new Code128Encoder();
+        var explicitB = new Code128Encoder(Code128Set.B);
+
+        defaultEncoder.TryEncode("A1", out var defaultPattern, out _);
+        explicitB.TryEncode("A1", out var explicitPattern, out _);
+
+        Assert.Equal(explicitPattern!.Segments, defaultPattern!.Segments);
+    }
+
+    [Fact]
+    public void TryEncode_SetA_UppercaseAndControlChars_Succeeds()
+    {
+        var encoder = new Code128Encoder(Code128Set.A);
+
+        var success = encoder.TryEncode("ABC-123", out var pattern, out var error);
+
+        Assert.True(success);
+        Assert.Null(error);
+        Assert.Equal("ABC-123", pattern!.Value);
+    }
+
+    [Fact]
+    public void TryEncode_SetA_LowercaseLetter_ReturnsError()
+    {
+        var encoder = new Code128Encoder(Code128Set.A);
+
+        var success = encoder.TryEncode("abc", out var pattern, out var error);
+
+        Assert.False(success);
+        Assert.Null(pattern);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void TryEncode_SetC_DigitPairs_Succeeds()
+    {
+        var encoder = new Code128Encoder(Code128Set.C);
+
+        var success = encoder.TryEncode("00012345678905", out var pattern, out var error);
+
+        Assert.True(success);
+        Assert.Null(error);
+        Assert.Equal("00012345678905", pattern!.Value);
+    }
+
+    [Fact]
+    public void TryEncode_SetC_OddLength_ReturnsError()
+    {
+        var encoder = new Code128Encoder(Code128Set.C);
+
+        var success = encoder.TryEncode("123", out var pattern, out var error);
+
+        Assert.False(success);
+        Assert.Null(pattern);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void TryEncode_SetC_ProducesShorterSymbolCountThanSetB()
+    {
+        var setC = new Code128Encoder(Code128Set.C);
+        var setB = new Code128Encoder(Code128Set.B);
+
+        setC.TryEncode("12345678", out var patternC, out _);
+        setB.TryEncode("12345678", out var patternB, out _);
+
+        // Set C: start+4 digit-pairs+check+stop = 7 symbols * 6 = 42 (stop is 7-wide) = 41
+        // Set B: start+8 digits+check+stop = 10 symbols
+        Assert.True(patternC!.Segments.Count < patternB!.Segments.Count);
+    }
+
+    [Fact]
+    public void TryEncode_SetA_StartSymbolDiffersFromSetB()
+    {
+        var setA = new Code128Encoder(Code128Set.A);
+        var setB = new Code128Encoder(Code128Set.B);
+
+        setA.TryEncode("A", out var patternA, out _);
+        setB.TryEncode("A", out var patternB, out _);
+
+        var startA = patternA!.Segments.Take(6).ToArray();
+        var startB = patternB!.Segments.Take(6).ToArray();
+
+        Assert.NotEqual(startB, startA);
+    }
 }
