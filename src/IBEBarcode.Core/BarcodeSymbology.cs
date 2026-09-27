@@ -11,4 +11,5 @@ public enum BarcodeSymbology
     UpcA,
     Isbn,
     Code93,
+    Code39Extended,
 }
