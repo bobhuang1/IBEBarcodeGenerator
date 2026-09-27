@@ -7,4 +7,8 @@
     <RootNamespace>IBEBarcode.Core</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="IBEBarcode.Core.Tests" />
+  </ItemGroup>
+
 </Project>
