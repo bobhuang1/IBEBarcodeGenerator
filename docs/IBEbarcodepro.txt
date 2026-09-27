@@ -1,0 +1,27 @@
+Dear Venkat,
+ 
+Thanks much for ordering IBE Barcode Studio Professional Edition. Here's your registration information,
+Username: Venkat
+Registration Code: KTRPU-GFBBM-E7ICJ
+Please note that both fields are case-sensitive.
+You can enter the registration information under the Help -> About menu within the application.
+ 
+You will find the newest release of IBE Barcode Studio Professional Edition at http://www.ibebarcode.com/download.html (the code above will allow you to register the application as the full version). The application is updated regularly. If your business need other types of barcode-related software, we can provide customized solutions as well. Please contact me directly if you have any questions about the application or our customized solutions. Again, thank you for choosing IBE Barcode Studio Professional Edition!
+
+Sincerely Yours,
+
+Bob Huang
+IBE Group, Inc.
+
+Detailed Instructions for Download and Installation
+1. Go to the link http://www.ibebarcode.com/download.html
+2. Scroll down on the page, click on the "Download" button under the "EXE file" title in the table
+3. The browser will ask you to save the file, select "Yes" to save the file on your hard drive - make sure you remember where you saved it.
+4. Find the file you just saved in step 3, double click on it and the setup program will run
+5. Follow the instructions (most of the time you do not need to change any options, just leave them at default) and finish the installation
+6. Restart the computer once the installation is finished (this is important)
+7. Once restarted, you should have a new icon "IBE Barcode Studio Professional Edition" on your desktop, double click on it to launch the program.
+8. The first time you start the program, it will ask you to register, use the username and code in this Email to register it.
+9. If you "cancel"ed in step 8, do not worry, you can go under the "Help" -> "About" menu once you are inside the IBE Barcode Studio Professional Edition program, and you can click on the "Register" button to enter the registration information.
+Please note that username and registration code are both case-sensitive. Thanks!
+ 
