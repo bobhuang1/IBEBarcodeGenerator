@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/IBEBarcode.Core/IBEBarcode.Core.csproj" />
+    <Project Path="src/IBEBarcode.Rendering/IBEBarcode.Rendering.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/IBEBarcode.Core.Tests/IBEBarcode.Core.Tests.csproj" />
+    <Project Path="tests/IBEBarcode.Rendering.Tests/IBEBarcode.Rendering.Tests.csproj" />
   </Folder>
 </Solution>
