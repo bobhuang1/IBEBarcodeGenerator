@@ -40,7 +40,17 @@ dotnet add src/IBEBarcode.Web/IBEBarcode.Web.csproj reference src/IBEBarcode.Cor
 - [ ] **Step 2: Verify the scaffolded app builds before any custom code**
 
 Run: `dotnet build src/IBEBarcode.Web/IBEBarcode.Web.csproj`
-Expected: builds cleanly — this confirms `IBEBarcode.Core`/`IBEBarcode.Rendering` (and SkiaSharp's WASM native assets) actually resolve for the `browser-wasm` target before customizing anything. If SkiaSharp fails to restore a WASM-compatible native asset here, that's a real finding to report, not something to route around silently.
+Expected: builds cleanly at compile time — but this does **not** prove SkiaSharp actually works at runtime in the browser. It didn't: the first working build of this plan loaded in Chrome and threw
+`System.DllNotFoundException: libSkiaSharp` (visible only via the browser console, not the build output) the moment `BarcodeRenderer` tried to draw anything. The real problem: SkiaSharp's native code needs to be statically linked into the WASM runtime, which the default Blazor WASM project setup does not do.
+
+**The actual fix**, found by reproducing the failure in a real browser and researching the exact exception (do this rather than skip runtime verification because the build succeeded):
+
+1. Install the `wasm-tools` workload if it isn't already present — required for `WasmBuildNative` to have an Emscripten toolchain to link against: `dotnet workload install wasm-tools`.
+2. Add `<WasmBuildNative>true</WasmBuildNative>` to the `<PropertyGroup>` in `IBEBarcode.Web.csproj`.
+3. Add a package reference: `dotnet add src/IBEBarcode.Web/IBEBarcode.Web.csproj package SkiaSharp.NativeAssets.WebAssembly` (let NuGet resolve the version — it should match the main `SkiaSharp` package version transitively pulled in via `IBEBarcode.Rendering`).
+4. Rebuild. This triggers an Emscripten native-compile-and-link step (~30 seconds, `emcc`/`clang` output in the build log) that actually bakes `libSkiaSharp` into `dotnet.native.wasm`.
+
+Verify by actually running the app in a browser and checking the console for `DllNotFoundException`/`TypeInitializationException` — a clean `dotnet build` is not sufficient evidence this works.
 
 - [ ] **Step 3: Inspect the actual scaffolded page structure**
 
@@ -182,12 +192,12 @@ Add `@using IBEBarcode.Core`, `@using IBEBarcode.Core.Encoders`, and `@using IBE
 
 Delete the template's sample pages (`Counter.razor`, `Weather.razor` or equivalents) and their nav-menu entries if the template scaffolded a nav layout referencing them, so the build doesn't carry unused sample code.
 
-- [ ] **Step 5: Build and confirm the WASM app runs**
+- [ ] **Step 5: Build and confirm the WASM app runs — in an actual browser**
 
 Run: `dotnet build src/IBEBarcode.Web/IBEBarcode.Web.csproj`
 Expected: builds cleanly.
 
-Run `dotnet run --project src/IBEBarcode.Web` and, if a browser can reach the printed localhost URL in this environment, confirm the page loads and shows a Code 39 barcode for "HELLO123" by default, updating live as the input or symbology selection changes. If browser verification isn't possible in this environment, a clean build plus a successful `dotnet publish` (which fully exercises the WASM/AOT toolchain) is the achievable bar — say so explicitly rather than claiming it was verified in a browser.
+Run `dotnet run --project src/IBEBarcode.Web --urls http://localhost:<port>`, navigate a real browser to it, and check the browser console for errors — not just that the build succeeded. Confirmed working in this plan: default load shows a Code 39 barcode for "HELLO123"; switching the symbology dropdown to QrCode renders a real scannable-looking QR code with visible finder patterns; editing the text field updates the barcode live (tested with a URL, which correctly grew the QR code to a larger version). If browser verification genuinely isn't possible in some environment, say so explicitly — a clean build is not evidence the WASM runtime actually works, as this plan's own SkiaSharp native-linking issue demonstrated.
 
 - [ ] **Step 6: Commit**
 

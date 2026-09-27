@@ -1,0 +1,128 @@
+@page "/"
+@using IBEBarcode.Core
+@using IBEBarcode.Core.Encoders
+@using IBEBarcode.Rendering
+
+<PageTitle>IBE Barcode Generator</PageTitle>
+
+<h1>IBE Barcode Generator</h1>
+
+<div class="mb-3">
+    <label>Value to encode</label>
+    <input class="form-control" @bind="InputText" @bind:event="oninput" />
+</div>
+
+<div class="mb-3">
+    <label>Symbology</label>
+    <select class="form-select" @bind="SelectedSymbology">
+        @foreach (var symbology in AvailableSymbologies)
+        {
+            <option value="@symbology">@symbology</option>
+        }
+    </select>
+</div>
+
+@if (ErrorMessage is not null)
+{
+    <p style="color:red">@ErrorMessage</p>
+}
+
+@if (PreviewImageDataUri is not null)
+{
+    <img src="@PreviewImageDataUri" style="max-width:600px;border:1px solid gray;padding:8px" />
+}
+
+@code {
+    private string _inputText = "HELLO123";
+    private SupportedSymbology _selectedSymbology = SupportedSymbology.Code39;
+
+    private string InputText
+    {
+        get => _inputText;
+        set { _inputText = value; Regenerate(); }
+    }
+
+    private SupportedSymbology SelectedSymbology
+    {
+        get => _selectedSymbology;
+        set { _selectedSymbology = value; Regenerate(); }
+    }
+
+    private string? ErrorMessage;
+    private string? PreviewImageDataUri;
+
+    public IReadOnlyList<SupportedSymbology> AvailableSymbologies { get; } =
+        Enum.GetValues<SupportedSymbology>();
+
+    protected override void OnInitialized() => Regenerate();
+
+    private void Regenerate()
+    {
+        ErrorMessage = null;
+        PreviewImageDataUri = null;
+
+        if (string.IsNullOrEmpty(InputText))
+        {
+            ErrorMessage = "Enter a value to encode.";
+            return;
+        }
+
+        try
+        {
+            byte[] pngBytes;
+
+            if (SelectedSymbology == SupportedSymbology.QrCode)
+            {
+                var qrEncoder = new QrEncoder();
+
+                if (!qrEncoder.TryEncode(InputText, out var matrix, out var error))
+                {
+                    ErrorMessage = error;
+                    return;
+                }
+
+                pngBytes = MatrixRenderer.RenderToPng(matrix!, new MatrixRenderOptions { ModuleSizePixels = 8, QuietZoneModules = 4 });
+            }
+            else
+            {
+                IBarcodeEncoder encoder = SelectedSymbology switch
+                {
+                    SupportedSymbology.Code39 => new Code39Encoder(),
+                    SupportedSymbology.Codabar => new CodabarEncoder(),
+                    SupportedSymbology.Interleaved2Of5 => new Interleaved2Of5Encoder(),
+                    SupportedSymbology.MsiPlessey => new MsiPlesseyEncoder(),
+                    SupportedSymbology.Code93 => new Code93Encoder(),
+                    SupportedSymbology.Code39Extended => new ExtendedCode39Encoder(),
+                    SupportedSymbology.Code128 => new Code128Encoder(),
+                    _ => throw new ArgumentOutOfRangeException(),
+                };
+
+                if (!encoder.TryEncode(InputText, out var pattern, out var error))
+                {
+                    ErrorMessage = error;
+                    return;
+                }
+
+                pngBytes = BarcodeRenderer.RenderToPng(pattern!, new BarcodeRenderOptions { ModuleWidthPixels = 2, QuietZoneModules = 10, BarHeightPixels = 80 });
+            }
+
+            PreviewImageDataUri = $"data:image/png;base64,{Convert.ToBase64String(pngBytes)}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Unexpected error: {ex.Message}";
+        }
+    }
+
+    public enum SupportedSymbology
+    {
+        Code39,
+        Codabar,
+        Interleaved2Of5,
+        MsiPlessey,
+        Code93,
+        Code39Extended,
+        Code128,
+        QrCode,
+    }
+}
