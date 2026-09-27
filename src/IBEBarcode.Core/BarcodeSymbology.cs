@@ -15,4 +15,5 @@ public enum BarcodeSymbology
     Code128,
     Postnet,
     QrCode,
+    Gs1_128,
 }
