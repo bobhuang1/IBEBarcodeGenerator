@@ -6,4 +6,8 @@ public enum BarcodeSymbology
     Codabar,
     Interleaved2Of5,
     MsiPlessey,
+    Ean13,
+    Ean8,
+    UpcA,
+    Isbn,
 }
