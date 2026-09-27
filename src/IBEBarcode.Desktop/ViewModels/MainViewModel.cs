@@ -18,6 +18,10 @@ public enum SupportedSymbology
     Code93,
     Code39Extended,
     Code128,
+    Ean13,
+    Ean8,
+    UpcA,
+    Isbn,
     QrCode,
 }
 
@@ -85,6 +89,10 @@ public partial class MainViewModel : ViewModelBase
                     SupportedSymbology.Code93 => new Code93Encoder(),
                     SupportedSymbology.Code39Extended => new ExtendedCode39Encoder(),
                     SupportedSymbology.Code128 => new Code128Encoder(),
+                    SupportedSymbology.Ean13 => new Ean13Encoder(),
+                    SupportedSymbology.Ean8 => new Ean8Encoder(),
+                    SupportedSymbology.UpcA => new UpcAEncoder(),
+                    SupportedSymbology.Isbn => new IsbnEncoder(),
                     _ => throw new ArgumentOutOfRangeException(),
                 };
 
