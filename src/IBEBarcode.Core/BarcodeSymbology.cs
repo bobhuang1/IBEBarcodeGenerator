@@ -13,4 +13,5 @@ public enum BarcodeSymbology
     Code93,
     Code39Extended,
     Code128,
+    Postnet,
 }
