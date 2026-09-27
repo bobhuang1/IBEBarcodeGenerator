@@ -52,26 +52,37 @@ Edit `tests/IBEBarcode.Printing.Tests/IBEBarcode.Printing.Tests.csproj`'s `<Prop
 
 - [ ] **Step 2: Write the failing tests**
 
-A minimal 1x1 red-pixel PNG (as a byte array literal) stands in for a rendered label image — the generator doesn't care what the PNG contains, only that it's a valid image PdfSharp can decode.
+A real PNG produced by `IBEBarcode.Rendering`'s already-tested pipeline stands in
+for a rendered label image, rather than a hand-typed byte array (which is easy
+to get subtly wrong — a hand-typed PNG in an earlier draft of this plan turned
+out to have a corrupted IDAT chunk that PdfSharp's decoder rejected). This
+means the test project also references `IBEBarcode.Core` and
+`IBEBarcode.Rendering`:
+
+```bash
+dotnet add tests/IBEBarcode.Printing.Tests/IBEBarcode.Printing.Tests.csproj reference src/IBEBarcode.Rendering/IBEBarcode.Rendering.csproj src/IBEBarcode.Core/IBEBarcode.Core.csproj
+```
 
 Create `tests/IBEBarcode.Printing.Tests/LabelSheetPdfGeneratorTests.cs`:
 
 ```csharp
+using IBEBarcode.Core;
+using IBEBarcode.Core.Encoders;
+using IBEBarcode.Rendering;
 using IBEBarcode.Templates;
 
 namespace IBEBarcode.Printing.Tests;
 
 public class LabelSheetPdfGeneratorTests
 {
-    // A valid, minimal 1x1 black-pixel PNG.
-    private static readonly byte[] TinyPng =
+    private static readonly byte[] TinyPng = RenderRealBarcodePng();
+
+    private static byte[] RenderRealBarcodePng()
     {
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
-        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
-        0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08, 0xD7, 0x63, 0x60, 0x60, 0x60, 0x00,
-        0x00, 0x00, 0x04, 0x00, 0x01, 0x5C, 0xCD, 0xFF, 0x69, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E,
-        0x44, 0xAE, 0x42, 0x60, 0x82,
-    };
+        var encoder = new Code39Encoder();
+        encoder.TryEncode("A", out var pattern, out _);
+        return BarcodeRenderer.RenderToPng(pattern!, new BarcodeRenderOptions { ModuleWidthPixels = 1, QuietZoneModules = 0, BarHeightPixels = 10 });
+    }
 
     private static PaperTemplate SmallTemplate() => new()
     {
