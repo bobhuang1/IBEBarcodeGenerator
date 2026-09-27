@@ -2,9 +2,11 @@
   <Folder Name="/src/">
     <Project Path="src/IBEBarcode.Core/IBEBarcode.Core.csproj" />
     <Project Path="src/IBEBarcode.Rendering/IBEBarcode.Rendering.csproj" />
+    <Project Path="src/IBEBarcode.Templates/IBEBarcode.Templates.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/IBEBarcode.Core.Tests/IBEBarcode.Core.Tests.csproj" />
     <Project Path="tests/IBEBarcode.Rendering.Tests/IBEBarcode.Rendering.Tests.csproj" />
+    <Project Path="tests/IBEBarcode.Templates.Tests/IBEBarcode.Templates.Tests.csproj" />
   </Folder>
 </Solution>
