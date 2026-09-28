@@ -30,6 +30,9 @@ public enum SupportedSymbology
     DataMatrix,
     Pdf417,
     Aztec,
+    Gs1_128,
+    Upc2DigitSupplement,
+    Upc5DigitSupplement,
 }
 
 public partial class MainViewModel : ViewModelBase
@@ -157,6 +160,9 @@ public partial class MainViewModel : ViewModelBase
                     SupportedSymbology.UpcA => new UpcAEncoder(),
                     SupportedSymbology.UpcE => new UpcEEncoder(),
                     SupportedSymbology.Isbn => new IsbnEncoder(),
+                    SupportedSymbology.Gs1_128 => new Gs1_128Encoder(),
+                    SupportedSymbology.Upc2DigitSupplement => new Upc2DigitSupplementEncoder(),
+                    SupportedSymbology.Upc5DigitSupplement => new Upc5DigitSupplementEncoder(),
                     _ => throw new ArgumentOutOfRangeException(),
                 };
 
