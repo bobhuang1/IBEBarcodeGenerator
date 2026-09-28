@@ -18,16 +18,18 @@ preview and paper-template PDF label sheet export. See
 - `src/IBEBarcode.Core` — barcode data models and custom-written encoders
   (no graphics dependency, no third-party barcode library). Formats: Code 39,
   Extended Code 39, Codabar, Interleaved 2 of 5, MSI Plessey, Code 93,
-  Code 128 (Set A/B/C), EAN-13, EAN-8, UPC-A, UPC-E, UPC 2-digit and
-  5-digit supplements, GS1-128 (numeric), ISBN (Bookland), Postnet,
-  QR Code, Data Matrix (ASCII mode, all 9 square sizes), PDF417 (Byte
-  Compaction mode, standard non-compact symbols), and Aztec Code
-  (Binary Shift mode, compact symbols only).
+  Code 128 (Set A/B/C, or auto mid-message subset switching), EAN-13,
+  EAN-8, UPC-A, UPC-E, UPC 2-digit and 5-digit supplements, GS1-128
+  (numeric, or the full official GS1 Application Identifier element-string
+  notation), ISBN (Bookland), Postnet, QR Code, Data Matrix (ASCII mode,
+  all 9 square sizes plus 2 rectangular sizes), PDF417 (Byte Compaction by
+  default, plus optional Compact/Numeric Compaction/Text Compaction
+  modes), and Aztec Code (Binary Shift mode, all layers 1-32).
 - `src/IBEBarcode.Rendering` — SkiaSharp renderers for all three pattern
   shapes: linear (`BarcodeRenderer`), 2D grid (`MatrixRenderer` for QR),
   and height-varying (`HeightBarRenderer` for Postnet).
 - `src/IBEBarcode.Templates` — `PaperTemplate` model and a catalog of
-  real-world label sheet layouts (Avery 5160, 5163, ...).
+  real-world label sheet layouts (Avery 5160, 5161, 5163, ...).
 - `src/IBEBarcode.Printing` — PdfSharp-based label sheet PDF generation
   from a `PaperTemplate` and a set of rendered label images. Works
   identically on desktop .NET and in the browser under Blazor
