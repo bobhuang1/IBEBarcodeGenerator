@@ -35,9 +35,22 @@ public class Pdf417RoundTripTests
         Assert.Equal("Hello, level 8!", decoded);
     }
 
-    private static string Decode(BarcodeMatrix matrix)
+    [Fact]
+    public void EncodeThenDecode_Compact_RoundTripsExactly()
     {
-        var cols = (matrix.Width - 69) / 17;
+        var encoder = new Pdf417Encoder(compact: true);
+        var success = encoder.TryEncode("Compact PDF417!", out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = Decode(matrix!, compact: true);
+
+        Assert.Equal("Compact PDF417!", decoded);
+    }
+
+    private static string Decode(BarcodeMatrix matrix, bool compact = false)
+    {
+        var cols = (matrix.Width - (compact ? 35 : 69)) / 17;
         var rows = matrix.Height;
 
         var reverseLookup = new Dictionary<int, int>[3];

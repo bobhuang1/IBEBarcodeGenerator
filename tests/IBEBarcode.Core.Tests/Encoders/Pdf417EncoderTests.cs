@@ -83,4 +83,28 @@ public class Pdf417EncoderTests
         Assert.Null(matrix);
         Assert.NotNull(error);
     }
+
+    [Fact]
+    public void TryEncode_Compact_ProducesNarrowerSymbolThanStandard()
+    {
+        var compact = new Pdf417Encoder(compact: true);
+
+        _encoder.TryEncode("Hello, PDF417!", out var standardMatrix, out _);
+        var success = compact.TryEncode("Hello, PDF417!", out var compactMatrix, out var error);
+
+        Assert.True(success, error);
+        Assert.Equal(standardMatrix!.Height, compactMatrix!.Height);
+        Assert.True(compactMatrix.Width < standardMatrix.Width);
+    }
+
+    [Fact]
+    public void TryEncode_Compact_WidthMatchesCompactColumnFormula()
+    {
+        var compact = new Pdf417Encoder(compact: true);
+
+        compact.TryEncode("Hello, PDF417!", out var matrix, out _);
+
+        var remainder = (matrix!.Width - 35) % 17;
+        Assert.Equal(0, remainder);
+    }
 }

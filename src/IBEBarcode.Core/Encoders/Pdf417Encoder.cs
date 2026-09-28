@@ -15,10 +15,12 @@ public sealed class Pdf417Encoder : IMatrixBarcodeEncoder
     private const int StopPattern = 0x3fa29;
 
     private readonly int? _errorCorrectionLevel;
+    private readonly bool _compact;
 
-    public Pdf417Encoder(int? errorCorrectionLevel = null)
+    public Pdf417Encoder(int? errorCorrectionLevel = null, bool compact = false)
     {
         _errorCorrectionLevel = errorCorrectionLevel;
+        _compact = compact;
     }
 
     public BarcodeSymbology Symbology => BarcodeSymbology.Pdf417;
@@ -104,7 +106,7 @@ public sealed class Pdf417Encoder : IMatrixBarcodeEncoder
         Array.Copy(dataCodewords, fullCodewords, dataCodewords.Length);
         Array.Copy(ecCodewords, 0, fullCodewords, dataCodewords.Length, ecCodewords.Length);
 
-        var width = 17 * cols + 69;
+        var width = _compact ? 17 * cols + 35 : 17 * cols + 69;
         var modules = new bool[width, rows];
 
         var idx = 0;
@@ -117,22 +119,18 @@ public sealed class Pdf417Encoder : IMatrixBarcodeEncoder
             col = WritePattern(modules, col, y, StartPattern, 17);
 
             int left;
-            int right;
 
             if (cluster == 0)
             {
                 left = (30 * (y / 3)) + ((rows - 1) / 3);
-                right = (30 * (y / 3)) + (cols - 1);
             }
             else if (cluster == 1)
             {
                 left = (30 * (y / 3)) + (level * 3) + ((rows - 1) % 3);
-                right = (30 * (y / 3)) + ((rows - 1) / 3);
             }
             else
             {
                 left = (30 * (y / 3)) + (cols - 1);
-                right = (30 * (y / 3)) + (level * 3) + ((rows - 1) % 3);
             }
 
             col = WritePattern(modules, col, y, Pdf417CodewordTable.Patterns[cluster][left], 17);
@@ -143,8 +141,30 @@ public sealed class Pdf417Encoder : IMatrixBarcodeEncoder
                 idx++;
             }
 
-            col = WritePattern(modules, col, y, Pdf417CodewordTable.Patterns[cluster][right], 17);
-            WritePattern(modules, col, y, StopPattern, 18);
+            if (_compact)
+            {
+                WritePattern(modules, col, y, StopPattern, 1);
+            }
+            else
+            {
+                int right;
+
+                if (cluster == 0)
+                {
+                    right = (30 * (y / 3)) + (cols - 1);
+                }
+                else if (cluster == 1)
+                {
+                    right = (30 * (y / 3)) + ((rows - 1) / 3);
+                }
+                else
+                {
+                    right = (30 * (y / 3)) + (level * 3) + ((rows - 1) % 3);
+                }
+
+                col = WritePattern(modules, col, y, Pdf417CodewordTable.Patterns[cluster][right], 17);
+                WritePattern(modules, col, y, StopPattern, 18);
+            }
         }
 
         matrix = BarcodeMatrix.Create(value, modules);
