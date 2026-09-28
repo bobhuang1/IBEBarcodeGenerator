@@ -1,9 +1,64 @@
 using IBEBarcode.Core.Encoders;
+using IBEBarcode.Core.Encoders.Qr;
 
 namespace IBEBarcode.Core.Tests.Encoders;
 
 public class QrEncoderTests
 {
+    private static readonly (int X, int Y)[] FormatInfoCoordinates =
+    {
+        (8, 0), (8, 1), (8, 2), (8, 3), (8, 4), (8, 5), (8, 7),
+        (8, 8), (7, 8), (5, 8), (4, 8), (3, 8), (2, 8), (1, 8), (0, 8),
+    };
+
+    private static readonly char[] LevelOrder = { 'L', 'M', 'Q', 'H' };
+
+    private static int ReadChosenMaskPattern(BarcodeMatrix matrix, char level)
+    {
+        var formatBits = new char[15];
+
+        for (var i = 0; i < 15; i++)
+        {
+            var (x, y) = FormatInfoCoordinates[i];
+            formatBits[14 - i] = matrix[x, y] ? '1' : '0';
+        }
+
+        var formatString = new string(formatBits);
+
+        for (var mask = 0; mask < 8; mask++)
+        {
+            if (QrMaskUtil.ComputeFormatString(level, mask) == formatString)
+            {
+                return mask;
+            }
+        }
+
+        throw new InvalidOperationException($"Unrecognized format string: {formatString}");
+    }
+
+    [Fact]
+    public void TryEncode_MaskSelectionIsDeterministicForTheSameInput()
+    {
+        // Basic sanity property of the scoring loop: re-encoding identical input at the
+        // same level must always resolve the same "lowest penalty" winner. (Real per-input
+        // scoring does vary the *value* it picks across genuinely different inputs -- see
+        // QrMaskUtilTests for the penalty formulas themselves, independently hand-verified,
+        // and QrRoundTripTests, which round-trips dozens of inputs successfully regardless
+        // of which of the 8 masks scoring happens to choose for each -- but determinism for
+        // a fixed input is what's cheaply and reliably checkable from outside the encoder.)
+        var encoder = new QrEncoder('M');
+        var value = "The quick brown fox jumps over the lazy dog 0123456789";
+
+        encoder.TryEncode(value, out var first, out _);
+        encoder.TryEncode(value, out var second, out _);
+
+        var maskFirst = ReadChosenMaskPattern(first!, 'M');
+        var maskSecond = ReadChosenMaskPattern(second!, 'M');
+
+        Assert.Equal(maskFirst, maskSecond);
+    }
+
+
     [Fact]
     public void TryEncode_ShortValue_ProducesVersion1Size()
     {

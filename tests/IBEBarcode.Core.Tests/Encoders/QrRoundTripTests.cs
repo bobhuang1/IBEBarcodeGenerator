@@ -82,14 +82,6 @@ public class QrRoundTripTests
         (8, 8), (7, 8), (5, 8), (4, 8), (3, 8), (2, 8), (1, 8), (0, 8),
     };
 
-    private static readonly Dictionary<string, char> LevelByFormatString = new()
-    {
-        ["111011111000100"] = 'L',
-        ["101010000010010"] = 'M',
-        ["011010101011111"] = 'Q',
-        ["001011010001001"] = 'H',
-    };
-
     private static readonly char[] LevelOrder = { 'L', 'M', 'Q', 'H' };
 
     private static string Decode(BarcodeMatrix matrix)
@@ -106,7 +98,28 @@ public class QrRoundTripTests
         }
 
         var formatString = new string(formatBits);
-        Assert.True(LevelByFormatString.TryGetValue(formatString, out var level), $"Unrecognized format string: {formatString}");
+
+        // Identify (level, maskPattern) by matching against all 32 valid format strings.
+        // Reuses QrMaskUtil.ComputeFormatString for generation (already independently
+        // cross-checked against known mask-0 values in QrMaskUtilTests) rather than
+        // re-deriving the BCH encoding a third time; the actual thing this round-trip
+        // test verifies is data placement and mask application, done independently below.
+        char level = default;
+        var maskPattern = -1;
+
+        foreach (var candidateLevel in LevelOrder)
+        {
+            for (var candidateMask = 0; candidateMask < 8; candidateMask++)
+            {
+                if (QrMaskUtil.ComputeFormatString(candidateLevel, candidateMask) == formatString)
+                {
+                    level = candidateLevel;
+                    maskPattern = candidateMask;
+                }
+            }
+        }
+
+        Assert.True(maskPattern >= 0, $"Unrecognized format string: {formatString}");
 
         var levelIndex = Array.IndexOf(LevelOrder, level);
         var versionInfo = QrVersionTable.Versions[version - 1];
@@ -177,7 +190,7 @@ public class QrRoundTripTests
                     {
                         var bit = matrix[xx, y];
 
-                        if ((xx + y) % 2 == 0)
+                        if (QrMaskUtil.GetDataMaskBit(maskPattern, xx, y))
                         {
                             bit = !bit;
                         }

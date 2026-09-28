@@ -10,14 +10,6 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
     private readonly char _level;
     private static readonly char[] LevelOrder = { 'L', 'M', 'Q', 'H' };
 
-    private static readonly Dictionary<char, string> FormatStringsMask0 = new()
-    {
-        ['L'] = "111011111000100",
-        ['M'] = "101010000010010",
-        ['Q'] = "011010101011111",
-        ['H'] = "001011010001001",
-    };
-
     private static readonly (int X, int Y)[] FormatInfoCoordinates =
     {
         (8, 0), (8, 1), (8, 2), (8, 3), (8, 4), (8, 5), (8, 7),
@@ -63,25 +55,62 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         var codewords = BuildCodewords(value, dataBytes, mode, unitCount, versionInfo.LevelsLmqh[levelIndex], countBits);
         var version = versionInfo.Version;
         var size = 17 + 4 * version;
-        var modules = new bool[size, size];
-        var reserved = new bool[size, size];
 
-        PlaceFinderPattern(modules, reserved, 0, 0, size);
-        PlaceFinderPattern(modules, reserved, size - 7, 0, size);
-        PlaceFinderPattern(modules, reserved, 0, size - 7, size);
-        PlaceTimingPatterns(modules, reserved, size);
-        PlaceAlignmentPatterns(modules, reserved, versionInfo.AlignmentCenters);
-        PlaceDarkModule(modules, reserved, size);
-        PlaceFormatInfo(modules, reserved, size);
+        var baseModules = new bool[size, size];
+        var baseReserved = new bool[size, size];
+
+        PlaceFinderPattern(baseModules, baseReserved, 0, 0, size);
+        PlaceFinderPattern(baseModules, baseReserved, size - 7, 0, size);
+        PlaceFinderPattern(baseModules, baseReserved, 0, size - 7, size);
+        PlaceTimingPatterns(baseModules, baseReserved, size);
+        PlaceAlignmentPatterns(baseModules, baseReserved, versionInfo.AlignmentCenters);
+        PlaceDarkModule(baseModules, baseReserved, size);
 
         if (version > 6)
         {
-            PlaceVersionInfo(modules, reserved, version, size);
+            PlaceVersionInfo(baseModules, baseReserved, version, size);
         }
 
-        PlaceDataBits(modules, reserved, codewords, size);
+        // Reserve (but don't yet fill) the format-info cells so the data zigzag walk
+        // skips them the same way for every mask trial.
+        foreach (var (fx, fy) in FormatInfoCoordinates)
+        {
+            baseReserved[fx, fy] = true;
+        }
 
-        matrix = BarcodeMatrix.Create(value, modules);
+        for (var i = 0; i < 8; i++)
+        {
+            baseReserved[size - i - 1, 8] = true;
+        }
+
+        for (var i = 8; i < 15; i++)
+        {
+            baseReserved[8, size - 7 + (i - 8)] = true;
+        }
+
+        bool[,]? bestModules = null;
+        var bestPenalty = int.MaxValue;
+
+        for (var maskPattern = 0; maskPattern < 8; maskPattern++)
+        {
+            var modules = (bool[,])baseModules.Clone();
+            var reserved = (bool[,])baseReserved.Clone();
+
+            PlaceDataBits(modules, reserved, codewords, size, maskPattern);
+
+            var formatString = QrMaskUtil.ComputeFormatString(_level, maskPattern);
+            PlaceFormatInfo(modules, formatString, size);
+
+            var penalty = QrMaskUtil.TotalPenalty(modules);
+
+            if (penalty < bestPenalty)
+            {
+                bestPenalty = penalty;
+                bestModules = modules;
+            }
+        }
+
+        matrix = BarcodeMatrix.Create(value, bestModules!);
         error = null;
         return true;
     }
@@ -421,17 +450,14 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         reserved[8, row] = true;
     }
 
-    private void PlaceFormatInfo(bool[,] modules, bool[,] reserved, int size)
+    private static void PlaceFormatInfo(bool[,] modules, string formatString, int size)
     {
-        var formatString = FormatStringsMask0[_level];
-
         for (var i = 0; i < 15; i++)
         {
             var bit = formatString[14 - i] == '1';
 
             var (x1, y1) = FormatInfoCoordinates[i];
             modules[x1, y1] = bit;
-            reserved[x1, y1] = true;
 
             int x2, y2;
 
@@ -447,7 +473,6 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
             }
 
             modules[x2, y2] = bit;
-            reserved[x2, y2] = true;
         }
     }
 
@@ -485,7 +510,7 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         }
     }
 
-    private static void PlaceDataBits(bool[,] modules, bool[,] reserved, byte[] codewords, int size)
+    private static void PlaceDataBits(bool[,] modules, bool[,] reserved, byte[] codewords, int size, int maskPattern)
     {
         var bitIndex = 0;
         var totalBits = codewords.Length * 8;
@@ -523,7 +548,7 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
                             bit = false;
                         }
 
-                        if ((xx + y) % 2 == 0)
+                        if (QrMaskUtil.GetDataMaskBit(maskPattern, xx, y))
                         {
                             bit = !bit;
                         }
