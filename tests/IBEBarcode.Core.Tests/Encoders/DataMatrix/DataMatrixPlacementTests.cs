@@ -17,7 +17,12 @@ public class DataMatrixPlacementTests
                 codewords[i] = (byte)(i + 1);
             }
 
-            var placement = new DataMatrixPlacement(codewords, size.InteriorWidth, size.InteriorHeight);
+            // DefaultPlacement always spans the *combined* data area across every region,
+            // not one region at a time (confirmed against ZXing's DataMatrixWriter).
+            var symbolDataWidth = size.RegionsHorizontal * size.InteriorWidth;
+            var symbolDataHeight = size.RegionsVertical * size.InteriorHeight;
+
+            var placement = new DataMatrixPlacement(codewords, symbolDataWidth, symbolDataHeight);
 
             placement.Place();
         }

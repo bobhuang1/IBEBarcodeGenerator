@@ -64,11 +64,31 @@ public class DataMatrixEncoderTests
     [Fact]
     public void TryEncode_ValueTooLargeForSupportedRange_ReturnsError()
     {
-        var success = _encoder.TryEncode(new string('A', 50), out var matrix, out var error);
+        // Exceeds even the largest supported size (dataCapacity 1304, interior 20x20 x 36
+        // regions).
+        var success = _encoder.TryEncode(new string('A', 2000), out var matrix, out var error);
 
         Assert.False(success);
         Assert.Null(matrix);
         Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void TryEncode_LargeMultiRegionValue_ProducesCorrectlySizedSymbol()
+    {
+        // 300 bytes needs a size beyond dataCapacity 44 -- forces a genuine multi-region
+        // symbol (interior 14x14, 2x2 = 4 regions, dataCapacity 62 would already suffice
+        // for less, but at 300 bytes this reaches a much larger multi-region, multi-block
+        // size).
+        var value = new string('A', 300);
+
+        var success = _encoder.TryEncode(value, out var matrix, out var error);
+
+        Assert.True(success, error);
+        Assert.NotNull(matrix);
+        // Symbol must be square-ish and reasonably large; the precise size depends on the
+        // table, so just sanity-check it grew well beyond the single-region 26x26 max.
+        Assert.True(matrix!.Width > 26);
     }
 
     [Fact]

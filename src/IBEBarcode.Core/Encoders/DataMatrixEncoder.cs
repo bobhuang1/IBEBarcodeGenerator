@@ -77,36 +77,68 @@ public sealed class DataMatrixEncoder : IMatrixBarcodeEncoder
             }
         }
 
-        var eccCodewords = DataMatrixErrorCorrection.ComputeEcc(dataCodewords, size.ErrorCodewords, size.EccPoly);
+        var allCodewords = DataMatrixErrorCorrection.EncodeEcc200(dataCodewords, size);
 
-        var allCodewords = new byte[size.DataCapacity + size.ErrorCodewords];
-        Array.Copy(dataCodewords, allCodewords, size.DataCapacity);
-        Array.Copy(eccCodewords, 0, allCodewords, size.DataCapacity, size.ErrorCodewords);
+        // DefaultPlacement always spans the *combined* data area across every region --
+        // confirmed directly from ZXing's DataMatrixWriter, which passes
+        // symbolInfo.getSymbolDataWidth()/Height() (region count * per-region interior
+        // size) to a single DefaultPlacement instance, not one per region. The ISO
+        // placement algorithm itself needs no per-region awareness.
+        var symbolDataWidth = size.RegionsHorizontal * size.InteriorWidth;
+        var symbolDataHeight = size.RegionsVertical * size.InteriorHeight;
 
-        var placement = new DataMatrixPlacement(allCodewords, size.InteriorWidth, size.InteriorHeight);
+        var placement = new DataMatrixPlacement(allCodewords, symbolDataWidth, symbolDataHeight);
         placement.Place();
 
-        var totalWidth = size.InteriorWidth + 2;
-        var totalHeight = size.InteriorHeight + 2;
+        var totalWidth = symbolDataWidth + (size.RegionsHorizontal * 2);
+        var totalHeight = symbolDataHeight + (size.RegionsVertical * 2);
         var modules = new bool[totalWidth, totalHeight];
 
-        for (var col = 0; col < totalWidth; col++)
-        {
-            modules[col, 0] = col % 2 == 0;
-            modules[col, totalHeight - 1] = true;
-        }
+        var matrixY = 0;
 
-        for (var y = 0; y < size.InteriorHeight; y++)
+        for (var y = 0; y < symbolDataHeight; y++)
         {
-            var outputRow = y + 1;
-            modules[0, outputRow] = true;
-
-            for (var x = 0; x < size.InteriorWidth; x++)
+            if (y % size.InteriorHeight == 0)
             {
-                modules[x + 1, outputRow] = placement.GetBit(x, y);
+                for (var x = 0; x < totalWidth; x++)
+                {
+                    modules[x, matrixY] = x % 2 == 0;
+                }
+
+                matrixY++;
             }
 
-            modules[size.InteriorWidth + 1, outputRow] = y % 2 == 0;
+            var matrixX = 0;
+
+            for (var x = 0; x < symbolDataWidth; x++)
+            {
+                if (x % size.InteriorWidth == 0)
+                {
+                    modules[matrixX, matrixY] = true;
+                    matrixX++;
+                }
+
+                modules[matrixX, matrixY] = placement.GetBit(x, y);
+                matrixX++;
+
+                if (x % size.InteriorWidth == size.InteriorWidth - 1)
+                {
+                    modules[matrixX, matrixY] = y % 2 == 0;
+                    matrixX++;
+                }
+            }
+
+            matrixY++;
+
+            if (y % size.InteriorHeight == size.InteriorHeight - 1)
+            {
+                for (var x = 0; x < totalWidth; x++)
+                {
+                    modules[x, matrixY] = true;
+                }
+
+                matrixY++;
+            }
         }
 
         matrix = BarcodeMatrix.Create(value, modules);

@@ -11,10 +11,11 @@ public class DataMatrixErrorCorrectionTests
         var padWord = 129 + pseudoRandom;
         var data = new byte[] { 66, 129, (byte)(padWord <= 254 ? padWord : padWord - 254) };
 
-        var ecc = DataMatrixErrorCorrection.ComputeEcc(data, 5, DataMatrixSymbols.Sizes[0].EccPoly);
+        var poly = DataMatrixSymbols.EccPolyByCount[5];
+        var ecc = DataMatrixErrorCorrection.ComputeEcc(data, 5, poly);
 
         Assert.Equal(5, ecc.Length);
-        var eccAgain = DataMatrixErrorCorrection.ComputeEcc(data, 5, DataMatrixSymbols.Sizes[0].EccPoly);
+        var eccAgain = DataMatrixErrorCorrection.ComputeEcc(data, 5, poly);
         Assert.Equal(ecc, eccAgain);
     }
 
@@ -41,11 +42,23 @@ public class DataMatrixErrorCorrectionTests
     }
 
     [Fact]
-    public void Sizes_EccPolyLengthMatchesErrorCodewordCount()
+    public void Sizes_RsBlockErrorPolyLengthMatchesRsBlockError()
     {
         foreach (var size in DataMatrixSymbols.Sizes)
         {
-            Assert.Equal(size.ErrorCodewords, size.EccPoly.Length);
+            Assert.True(DataMatrixSymbols.EccPolyByCount.ContainsKey(size.RsBlockError), $"No poly for ecc count {size.RsBlockError} (size dataCapacity={size.DataCapacity})");
+            Assert.Equal(size.RsBlockError, DataMatrixSymbols.EccPolyByCount[size.RsBlockError].Length);
+        }
+    }
+
+    [Fact]
+    public void Sizes_BlockCountConsistency_TotalCodewordsMatch()
+    {
+        foreach (var size in DataMatrixSymbols.Sizes)
+        {
+            var blockCount = size.DataCapacity / size.RsBlockData;
+            Assert.Equal(size.DataCapacity, blockCount * size.RsBlockData);
+            Assert.Equal(size.ErrorCodewords, blockCount * size.RsBlockError);
         }
     }
 }

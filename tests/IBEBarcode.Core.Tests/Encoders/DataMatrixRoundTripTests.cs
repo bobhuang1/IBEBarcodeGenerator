@@ -1,5 +1,6 @@
 using IBEBarcode.Core;
 using IBEBarcode.Core.Encoders;
+using IBEBarcode.Core.Encoders.DataMatrix;
 
 namespace IBEBarcode.Core.Tests.Encoders;
 
@@ -40,34 +41,81 @@ public class DataMatrixRoundTripTests
         Assert.Equal("ABCD", decoded);
     }
 
+    [Theory]
+    [InlineData(50)]  // dataCapacity 62, interior 14x14, 4 regions (2x2), single-block
+    [InlineData(100)] // dataCapacity 114, interior 18x18, 4 regions, single-block
+    [InlineData(300)] // dataCapacity beyond 204: multi-block (interior 24x24, 4 regions, 2 blocks)
+    [InlineData(700)] // dataCapacity beyond 696: multi-block (interior 24x24, 16 regions, 6 blocks)
+    public void EncodeThenDecode_MultiRegionAndMultiBlock_RoundTripsExactly(int length)
+    {
+        var encoder = new DataMatrixEncoder();
+        var value = string.Concat(Enumerable.Range(0, length).Select(i => (char)('A' + (i % 26))));
+        var success = encoder.TryEncode(value, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = Decode(matrix!);
+
+        Assert.Equal(value, decoded);
+    }
+
+    private static DataMatrixSymbols.SymbolSize FindSizeForMatrix(BarcodeMatrix matrix)
+    {
+        foreach (var size in DataMatrixSymbols.Sizes)
+        {
+            var totalWidth = (size.RegionsHorizontal * size.InteriorWidth) + (size.RegionsHorizontal * 2);
+            var totalHeight = (size.RegionsVertical * size.InteriorHeight) + (size.RegionsVertical * 2);
+
+            if (totalWidth == matrix.Width && totalHeight == matrix.Height)
+            {
+                return size;
+            }
+        }
+
+        throw new ArgumentException($"No known Data Matrix size matches {matrix.Width}x{matrix.Height}.");
+    }
+
     private static string Decode(BarcodeMatrix matrix)
     {
-        var numCols = matrix.Width - 2;
-        var numRows = matrix.Height - 2;
+        var size = FindSizeForMatrix(matrix);
+        var numCols = size.RegionsHorizontal * size.InteriorWidth;
+        var numRows = size.RegionsVertical * size.InteriorHeight;
 
-        var dataCapacity = (numCols, numRows) switch
-        {
-            (8, 8) => 3,
-            (10, 10) => 5,
-            (16, 6) => 5,
-            (12, 12) => 8,
-            (14, 14) => 12,
-            (24, 10) => 16,
-            (16, 16) => 18,
-            (18, 18) => 22,
-            (20, 20) => 30,
-            (22, 22) => 36,
-            (24, 24) => 44,
-            _ => throw new ArgumentOutOfRangeException(nameof(matrix)),
-        };
-
+        // Strip the (possibly multi-region) border to recover the combined data-region
+        // interior, using the same region-boundary rule as the encoder's border-assembly.
         var interior = new bool[numCols, numRows];
+        var matrixY = 0;
 
         for (var y = 0; y < numRows; y++)
         {
+            if (y % size.InteriorHeight == 0)
+            {
+                matrixY++; // skip the top border row for this region-row
+            }
+
+            var matrixX = 0;
+
             for (var x = 0; x < numCols; x++)
             {
-                interior[x, y] = matrix[x + 1, y + 1];
+                if (x % size.InteriorWidth == 0)
+                {
+                    matrixX++; // skip left border column for this region
+                }
+
+                interior[x, y] = matrix[matrixX, matrixY];
+                matrixX++;
+
+                if (x % size.InteriorWidth == size.InteriorWidth - 1)
+                {
+                    matrixX++; // skip right border column for this region
+                }
+            }
+
+            matrixY++;
+
+            if (y % size.InteriorHeight == size.InteriorHeight - 1)
+            {
+                matrixY++; // skip the bottom border row for this region-row
             }
         }
 
@@ -206,19 +254,28 @@ public class DataMatrixRoundTripTests
             col++;
         } while (row < numRows || col < numCols);
 
-        var dataBytes = new byte[dataCapacity];
+        var totalCodewords = size.DataCapacity + size.ErrorCodewords;
+        var allCodewords = new byte[totalCodewords];
 
-        for (var i = 0; i < dataCapacity; i++)
+        for (var i = 0; i < totalCodewords; i++)
         {
             var value = 0;
 
             for (var b = 0; b < 8; b++)
             {
-                value = (value << 1) | (totalCodewordBits[i * 8 + b] ? 1 : 0);
+                value = (value << 1) | (totalCodewordBits[(i * 8) + b] ? 1 : 0);
             }
 
-            dataBytes[i] = (byte)value;
+            allCodewords[i] = (byte)value;
         }
+
+        // Data codewords are the first DataCapacity entries, in original (un-striped)
+        // order -- only the ECC region is striped by the multi-block interleaving, per
+        // DataMatrixErrorCorrection.EncodeEcc200 (matches ZXing's encodeECC200: the input
+        // data codewords are appended to the output unchanged before ECC is computed and
+        // interleaved).
+        var dataBytes = new byte[size.DataCapacity];
+        Array.Copy(allCodewords, dataBytes, size.DataCapacity);
 
         var messageLength = 0;
 
