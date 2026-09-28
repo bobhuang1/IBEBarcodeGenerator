@@ -6,18 +6,36 @@ under the MIT license.
 
 ## Status
 
-Early development. See `docs/superpowers/specs/` for the architecture design
-and `docs/superpowers/plans/` for implementation plans.
+Every barcode format from the legacy Professional Edition's original
+16-format list is implemented and tested, plus QR Code. A working desktop
+app (Avalonia) and web app (Blazor WebAssembly) both offer live barcode
+preview and paper-template PDF label sheet export. See
+`docs/superpowers/specs/` for the architecture design and
+`docs/superpowers/plans/` for implementation plans (one per subsystem).
 
 ## Solution layout
 
 - `src/IBEBarcode.Core` — barcode data models and custom-written encoders
-  (no graphics dependency).
-- `tests/IBEBarcode.Core.Tests` — xUnit tests for `IBEBarcode.Core`.
-
-More projects (`IBEBarcode.Rendering`, `IBEBarcode.Printing`,
-`IBEBarcode.Templates`, `IBEBarcode.Desktop`, `IBEBarcode.Web`) land in
-later plans; see the design spec for the full solution layout.
+  (no graphics dependency, no third-party barcode library). Formats: Code 39,
+  Extended Code 39, Codabar, Interleaved 2 of 5, MSI Plessey, Code 93,
+  Code 128 (Set A/B/C), EAN-13, EAN-8, UPC-A, UPC-E, UPC 2-digit and
+  5-digit supplements, GS1-128 (numeric), ISBN (Bookland), Postnet, and
+  QR Code.
+- `src/IBEBarcode.Rendering` — SkiaSharp renderers for all three pattern
+  shapes: linear (`BarcodeRenderer`), 2D grid (`MatrixRenderer` for QR),
+  and height-varying (`HeightBarRenderer` for Postnet).
+- `src/IBEBarcode.Templates` — `PaperTemplate` model and a catalog of
+  real-world label sheet layouts (Avery 5160, 5163, ...).
+- `src/IBEBarcode.Printing` — PdfSharp-based label sheet PDF generation
+  from a `PaperTemplate` and a set of rendered label images. Works
+  identically on desktop .NET and in the browser under Blazor
+  WebAssembly.
+- `src/IBEBarcode.Desktop` — Avalonia MVVM app (Windows/Linux/macOS): live
+  barcode preview and PDF label sheet export via a native save dialog.
+- `src/IBEBarcode.Web` — Blazor WebAssembly standalone app: the same live
+  preview and PDF export, running entirely client-side in the browser (no
+  server, deployable as a static site).
+- `tests/` — one xUnit test project per library project above.
 
 ## Build and test
 
@@ -25,6 +43,33 @@ later plans; see the design spec for the full solution layout.
 dotnet build
 dotnet test
 ```
+
+Run the desktop app:
+
+```bash
+dotnet run --project src/IBEBarcode.Desktop
+```
+
+Run the web app:
+
+```bash
+dotnet run --project src/IBEBarcode.Web
+```
+
+The web app's `WasmBuildNative` build step (needed for SkiaSharp's native
+code to run under WebAssembly) requires the `wasm-tools` workload:
+
+```bash
+dotnet workload install wasm-tools
+```
+
+## Deployment
+
+`.github/workflows/azure-static-web-apps.yml` deploys `src/IBEBarcode.Web`
+to Azure Static Web Apps on push to `master`. It needs an
+`AZURE_STATIC_WEB_APPS_API_TOKEN` repository secret, which Azure adds
+automatically when you connect this repo to a Static Web App resource in
+the Azure portal.
 
 ## License
 
