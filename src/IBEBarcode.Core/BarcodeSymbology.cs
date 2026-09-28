@@ -19,4 +19,5 @@ public enum BarcodeSymbology
     UpcE,
     Upc2DigitSupplement,
     Upc5DigitSupplement,
+    DataMatrix,
 }

@@ -1,0 +1,93 @@
+using IBEBarcode.Core.Encoders;
+
+namespace IBEBarcode.Core.Tests.Encoders;
+
+public class DataMatrixEncoderTests
+{
+    private readonly DataMatrixEncoder _encoder = new();
+
+    [Fact]
+    public void TryEncode_ShortValue_SelectsSmallestSymbol()
+    {
+        var success = _encoder.TryEncode("Hi", out var matrix, out var error);
+
+        Assert.True(success);
+        Assert.Null(error);
+        Assert.Equal(10, matrix!.Width);
+        Assert.Equal(10, matrix.Height);
+        Assert.Equal(BarcodeSymbology.DataMatrix, _encoder.Symbology);
+    }
+
+    [Fact]
+    public void TryEncode_LongerValue_SelectsLargerSymbol()
+    {
+        var success = _encoder.TryEncode("Hello, Data Matrix!", out var matrix, out _);
+
+        Assert.True(success);
+        Assert.True(matrix!.Width > 10);
+    }
+
+    [Fact]
+    public void TryEncode_TopRowAlternatesStartingDark()
+    {
+        _encoder.TryEncode("Hi", out var matrix, out _);
+
+        Assert.True(matrix![0, 0]);
+        Assert.False(matrix[1, 0]);
+        Assert.True(matrix[2, 0]);
+    }
+
+    [Fact]
+    public void TryEncode_BottomRowIsSolidDark()
+    {
+        _encoder.TryEncode("Hi", out var matrix, out _);
+
+        var size = matrix!.Height;
+
+        for (var x = 0; x < matrix.Width; x++)
+        {
+            Assert.True(matrix[x, size - 1]);
+        }
+    }
+
+    [Fact]
+    public void TryEncode_LeftColumnIsSolidDark()
+    {
+        _encoder.TryEncode("Hi", out var matrix, out _);
+
+        for (var y = 0; y < matrix!.Height; y++)
+        {
+            Assert.True(matrix[0, y]);
+        }
+    }
+
+    [Fact]
+    public void TryEncode_ValueTooLargeForSupportedRange_ReturnsError()
+    {
+        var success = _encoder.TryEncode(new string('A', 50), out var matrix, out var error);
+
+        Assert.False(success);
+        Assert.Null(matrix);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void TryEncode_CharacterAboveAscii127_ReturnsError()
+    {
+        var success = _encoder.TryEncode("café", out var matrix, out var error);
+
+        Assert.False(success);
+        Assert.Null(matrix);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void TryEncode_EmptyValue_ReturnsError()
+    {
+        var success = _encoder.TryEncode("", out var matrix, out var error);
+
+        Assert.False(success);
+        Assert.Null(matrix);
+        Assert.NotNull(error);
+    }
+}
