@@ -23,6 +23,7 @@ public enum SupportedSymbology
     Ean13,
     Ean8,
     UpcA,
+    UpcE,
     Isbn,
     QrCode,
 }
@@ -132,6 +133,7 @@ public partial class MainViewModel : ViewModelBase
                     SupportedSymbology.Ean13 => new Ean13Encoder(),
                     SupportedSymbology.Ean8 => new Ean8Encoder(),
                     SupportedSymbology.UpcA => new UpcAEncoder(),
+                    SupportedSymbology.UpcE => new UpcEEncoder(),
                     SupportedSymbology.Isbn => new IsbnEncoder(),
                     _ => throw new ArgumentOutOfRangeException(),
                 };
