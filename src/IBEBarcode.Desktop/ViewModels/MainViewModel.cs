@@ -142,7 +142,7 @@ public partial class MainViewModel : ViewModelBase
                     return;
                 }
 
-                pngBytes = BarcodeRenderer.RenderToPng(pattern!, new BarcodeRenderOptions { ModuleWidthPixels = 2, QuietZoneModules = 10, BarHeightPixels = 80 });
+                pngBytes = BarcodeRenderer.RenderToPng(pattern!, new BarcodeRenderOptions { ModuleWidthPixels = 2, QuietZoneModules = 10, BarHeightPixels = 80, ShowHumanReadableText = true, TextHeightPixels = 24 });
             }
 
             _lastPngBytes = pngBytes;

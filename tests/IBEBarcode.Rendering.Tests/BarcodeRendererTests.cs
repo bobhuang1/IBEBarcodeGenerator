@@ -105,4 +105,54 @@ public class BarcodeRendererTests
         Assert.Equal(expectedWidth, bitmap.Width);
         Assert.Equal(60, bitmap.Height);
     }
+
+    [Fact]
+    public void Render_TextDisabledByDefault_MatchesPriorBehavior()
+    {
+        var pattern = BarcodePattern.Create("test", new[] { new BarSegment(true, 1) });
+        var options = new BarcodeRenderOptions { ModuleWidthPixels = 1, QuietZoneModules = 0, BarHeightPixels = 10 };
+
+        using var bitmap = BarcodeRenderer.Render(pattern, options);
+
+        Assert.Equal(10, bitmap.Height);
+    }
+
+    [Fact]
+    public void Render_TextEnabled_GrowsBitmapByTextHeight()
+    {
+        var pattern = BarcodePattern.Create("test", new[] { new BarSegment(true, 1) }, "ABC");
+        var options = new BarcodeRenderOptions
+        {
+            ModuleWidthPixels = 1,
+            QuietZoneModules = 0,
+            BarHeightPixels = 10,
+            ShowHumanReadableText = true,
+            TextHeightPixels = 20,
+        };
+
+        using var bitmap = BarcodeRenderer.Render(pattern, options);
+
+        Assert.Equal(30, bitmap.Height);
+    }
+
+    [Fact]
+    public void Render_TextEnabled_BarsStayConfinedToBarHeightRegion()
+    {
+        var pattern = BarcodePattern.Create("test", new[] { new BarSegment(true, 1) }, "ABC");
+        var options = new BarcodeRenderOptions
+        {
+            ModuleWidthPixels = 1,
+            QuietZoneModules = 0,
+            BarHeightPixels = 10,
+            ShowHumanReadableText = true,
+            TextHeightPixels = 20,
+        };
+
+        using var bitmap = BarcodeRenderer.Render(pattern, options);
+
+        // Below the bar region (in the text strip), the pixel directly under the
+        // bar's x-position should no longer be forced black by the bar itself.
+        Assert.Equal(SKColors.Black, bitmap.GetPixel(0, 5));
+        Assert.Equal(SKColors.White, bitmap.GetPixel(0, 15));
+    }
 }
