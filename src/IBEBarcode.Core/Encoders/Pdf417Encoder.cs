@@ -14,6 +14,13 @@ public sealed class Pdf417Encoder : IMatrixBarcodeEncoder
     private const int StartPattern = 0x1fea8;
     private const int StopPattern = 0x3fa29;
 
+    private readonly int? _errorCorrectionLevel;
+
+    public Pdf417Encoder(int? errorCorrectionLevel = null)
+    {
+        _errorCorrectionLevel = errorCorrectionLevel;
+    }
+
     public BarcodeSymbology Symbology => BarcodeSymbology.Pdf417;
 
     public bool TryEncode(string value, out BarcodeMatrix? matrix, out string? error)
@@ -42,12 +49,27 @@ public sealed class Pdf417Encoder : IMatrixBarcodeEncoder
         var highLevel = Pdf417HighLevelEncoder.EncodeBytes(bytes);
         var sourceCodeWords = highLevel.Length;
 
-        var level = RecommendedMinimumLevel(sourceCodeWords);
+        int level;
 
-        if (level < 0)
+        if (_errorCorrectionLevel is int explicitLevel)
         {
-            error = "Value is too large to encode: this PDF417 encoder supports at most 863 source codewords.";
-            return false;
+            if (explicitLevel is < 0 or > 8)
+            {
+                error = "Error correction level must be between 0 and 8.";
+                return false;
+            }
+
+            level = explicitLevel;
+        }
+        else
+        {
+            level = RecommendedMinimumLevel(sourceCodeWords);
+
+            if (level < 0)
+            {
+                error = "Value is too large to encode: this PDF417 encoder supports at most 863 source codewords.";
+                return false;
+            }
         }
 
         var errorCorrectionCodeWords = 1 << (level + 1);

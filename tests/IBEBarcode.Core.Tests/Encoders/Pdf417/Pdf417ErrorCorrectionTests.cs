@@ -16,15 +16,32 @@ public class Pdf417ErrorCorrectionTests
     }
 
     [Fact]
-    public void ErrorCorrectionCoefficients_HasLevelsZeroToFiveWithCorrectLengths()
+    public void ErrorCorrectionCoefficients_HasAllNineLevelsWithCorrectLengths()
     {
-        var expected = new[] { 2, 4, 8, 16, 32, 64 };
+        var expected = new[] { 2, 4, 8, 16, 32, 64, 128, 256, 512 };
 
-        Assert.Equal(6, Pdf417ErrorCorrectionCoefficients.Levels.Length);
+        Assert.Equal(9, Pdf417ErrorCorrectionCoefficients.Levels.Length);
 
         for (var i = 0; i < expected.Length; i++)
         {
             Assert.Equal(expected[i], Pdf417ErrorCorrectionCoefficients.Levels[i].Length);
+        }
+    }
+
+    [Fact]
+    public void Generate_Level8_ProducesCorrectCountAndIsDeterministic()
+    {
+        var data = new[] { 5, 900, 12, 34 };
+
+        var ec = Pdf417ErrorCorrection.Generate(data, 8);
+        var ecAgain = Pdf417ErrorCorrection.Generate(data, 8);
+
+        Assert.Equal(512, ec.Length);
+        Assert.Equal(ec, ecAgain);
+
+        foreach (var codeword in ec)
+        {
+            Assert.InRange(codeword, 0, 928);
         }
     }
 

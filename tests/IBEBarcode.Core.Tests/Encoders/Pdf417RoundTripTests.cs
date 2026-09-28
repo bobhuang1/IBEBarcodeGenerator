@@ -22,6 +22,19 @@ public class Pdf417RoundTripTests
         Assert.Equal(original, decoded);
     }
 
+    [Fact]
+    public void EncodeThenDecode_ExplicitHighErrorCorrectionLevel_RoundTripsExactly()
+    {
+        var encoder = new Pdf417Encoder(8);
+        var success = encoder.TryEncode("Hello, level 8!", out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = Decode(matrix!);
+
+        Assert.Equal("Hello, level 8!", decoded);
+    }
+
     private static string Decode(BarcodeMatrix matrix)
     {
         var cols = (matrix.Width - 69) / 17;

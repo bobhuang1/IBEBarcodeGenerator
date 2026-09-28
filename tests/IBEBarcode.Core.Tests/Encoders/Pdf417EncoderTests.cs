@@ -57,4 +57,30 @@ public class Pdf417EncoderTests
         Assert.Null(matrix);
         Assert.NotNull(error);
     }
+
+    [Fact]
+    public void TryEncode_ExplicitHighErrorCorrectionLevel_ProducesLargerSymbolThanDefault()
+    {
+        var level8 = new Pdf417Encoder(8);
+
+        _encoder.TryEncode("Hello", out var defaultMatrix, out _);
+        var success = level8.TryEncode("Hello", out var level8Matrix, out var error);
+
+        Assert.True(success, error);
+        // Level 8 uses 512 error-correction codewords vs. the auto-selected level's much
+        // smaller count, so it needs a larger symbol for the same short input.
+        Assert.True(level8Matrix!.Height > defaultMatrix!.Height || level8Matrix.Width > defaultMatrix.Width);
+    }
+
+    [Fact]
+    public void TryEncode_ExplicitLevelOutOfRange_ReturnsError()
+    {
+        var invalid = new Pdf417Encoder(9);
+
+        var success = invalid.TryEncode("Hello", out var matrix, out var error);
+
+        Assert.False(success);
+        Assert.Null(matrix);
+        Assert.NotNull(error);
+    }
 }
