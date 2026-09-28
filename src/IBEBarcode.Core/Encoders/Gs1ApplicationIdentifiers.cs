@@ -2,24 +2,14 @@ namespace IBEBarcode.Core.Encoders;
 
 internal static class Gs1ApplicationIdentifiers
 {
-    public sealed record Definition(bool FixedLength, int Length, bool Numeric);
+    public sealed record Definition(bool FixedLength, int MinLength, int MaxLength, bool Numeric, bool SeparatorRequired);
 
-    public sealed record Element(string Ai, string Value, bool IsFixedLength);
+    public sealed record Element(string Ai, string Value, bool SeparatorRequired);
 
-    // A deliberately small, documented subset of GS1 General Specifications Application
-    // Identifiers -- common logistics/retail fields, not the full 100+ AI table.
-    private static readonly Dictionary<string, Definition> Definitions = new()
-    {
-        ["00"] = new Definition(true, 18, true),   // SSCC
-        ["01"] = new Definition(true, 14, true),   // GTIN
-        ["10"] = new Definition(false, 20, false), // Batch/lot number
-        ["11"] = new Definition(true, 6, true),    // Production date (YYMMDD)
-        ["15"] = new Definition(true, 6, true),    // Best before date (YYMMDD)
-        ["17"] = new Definition(true, 6, true),    // Expiration date (YYMMDD)
-        ["20"] = new Definition(true, 2, true),    // Variant
-        ["21"] = new Definition(false, 20, false), // Serial number
-        ["30"] = new Definition(false, 8, true),   // Variable count
-    };
+    // Built from the full official GS1 Application Identifier table -- see
+    // Gs1ApplicationIdentifierTable.cs for how it was sourced and what its columns mean.
+    private static readonly Dictionary<string, Definition> Definitions = Gs1ApplicationIdentifierTable.Raw
+        .ToDictionary(r => r.Ai, r => new Definition(r.Fixed, r.Min, r.Max, r.Numeric, r.Separator));
 
     public static bool TryParseElementString(string value, out List<Element> elements, out string? error)
     {
@@ -48,7 +38,7 @@ internal static class Gs1ApplicationIdentifiers
 
             if (!Definitions.TryGetValue(ai, out var definition))
             {
-                error = $"Application Identifier ({ai}) is not one of the AIs this encoder supports: {string.Join(", ", Definitions.Keys)}.";
+                error = $"Application Identifier ({ai}) is not a recognized GS1 Application Identifier.";
                 elements.Clear();
                 return false;
             }
@@ -78,21 +68,21 @@ internal static class Gs1ApplicationIdentifiers
                 }
             }
 
-            if (definition.FixedLength && aiValue.Length != definition.Length)
+            if (aiValue.Length < definition.MinLength)
             {
-                error = $"Application Identifier ({ai}) requires exactly {definition.Length} characters; got {aiValue.Length}.";
+                error = $"Application Identifier ({ai}) requires at least {definition.MinLength} characters; got {aiValue.Length}.";
                 elements.Clear();
                 return false;
             }
 
-            if (!definition.FixedLength && aiValue.Length > definition.Length)
+            if (aiValue.Length > definition.MaxLength)
             {
-                error = $"Application Identifier ({ai}) allows at most {definition.Length} characters; got {aiValue.Length}.";
+                error = $"Application Identifier ({ai}) allows at most {definition.MaxLength} characters; got {aiValue.Length}.";
                 elements.Clear();
                 return false;
             }
 
-            elements.Add(new Element(ai, aiValue, definition.FixedLength));
+            elements.Add(new Element(ai, aiValue, definition.SeparatorRequired));
             i = valueEnd;
         }
 

@@ -71,7 +71,7 @@ public sealed class Gs1_128Encoder : IBarcodeEncoder
 
             startSet ??= firstSegmentSet;
 
-            if (!element.IsFixedLength && i < elements.Count - 1)
+            if (element.SeparatorRequired && i < elements.Count - 1)
             {
                 values.Add(Code128Symbols.Fnc1);
             }

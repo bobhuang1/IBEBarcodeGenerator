@@ -157,7 +157,8 @@ public class Gs1_128EncoderTests
     [Fact]
     public void TryEncode_ParenthesizedUnknownAi_ReturnsError()
     {
-        var success = _encoder.TryEncode("(99)12345", out var pattern, out var error);
+        // "9999" does not exist in GS1's official AI table (unlike "99", which does).
+        var success = _encoder.TryEncode("(9999)12345", out var pattern, out var error);
 
         Assert.False(success);
         Assert.Null(pattern);
