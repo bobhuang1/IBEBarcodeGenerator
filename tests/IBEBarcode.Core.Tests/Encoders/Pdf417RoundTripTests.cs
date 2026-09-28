@@ -36,6 +36,20 @@ public class Pdf417RoundTripTests
     }
 
     [Fact]
+    public void EncodeThenDecode_NumericCompaction_RoundTripsExactly()
+    {
+        var encoder = new Pdf417Encoder(numericCompaction: true);
+        var digits = "0123456789012345678901234567890123456789"; // 40 digits, single chunk
+        var success = encoder.TryEncode(digits, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = Decode(matrix!);
+
+        Assert.Equal(digits, decoded);
+    }
+
+    [Fact]
     public void EncodeThenDecode_Compact_RoundTripsExactly()
     {
         var encoder = new Pdf417Encoder(compact: true);
@@ -104,6 +118,21 @@ public class Pdf417RoundTripTests
         }
 
         var highLevel = sourceAndPad.GetRange(0, lastNonPad + 1);
+
+        if (highLevel[0] == 902)
+        {
+            // Numeric compaction, scoped here (like the encoder) to a single <=44-digit
+            // chunk: all codewords after the latch form one base-900 big integer whose
+            // decimal representation is "1" + the original digits.
+            var value = System.Numerics.BigInteger.Zero;
+
+            for (var i = 1; i < highLevel.Count; i++)
+            {
+                value = (value * 900) + highLevel[i];
+            }
+
+            return value.ToString()[1..];
+        }
 
         var codewordsAfterLatch = highLevel.GetRange(1, highLevel.Count - 1);
         var bytes = new List<byte>();

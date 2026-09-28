@@ -16,11 +16,13 @@ public sealed class Pdf417Encoder : IMatrixBarcodeEncoder
 
     private readonly int? _errorCorrectionLevel;
     private readonly bool _compact;
+    private readonly bool _numericCompaction;
 
-    public Pdf417Encoder(int? errorCorrectionLevel = null, bool compact = false)
+    public Pdf417Encoder(int? errorCorrectionLevel = null, bool compact = false, bool numericCompaction = false)
     {
         _errorCorrectionLevel = errorCorrectionLevel;
         _compact = compact;
+        _numericCompaction = numericCompaction;
     }
 
     public BarcodeSymbology Symbology => BarcodeSymbology.Pdf417;
@@ -35,20 +37,39 @@ public sealed class Pdf417Encoder : IMatrixBarcodeEncoder
             return false;
         }
 
-        var bytes = new byte[value.Length];
+        int[] highLevel;
 
-        for (var i = 0; i < value.Length; i++)
+        if (_numericCompaction)
         {
-            if (value[i] > 255)
+            foreach (var ch in value)
             {
-                error = $"Character '{value[i]}' is outside the 0-255 byte range this PDF417 encoder supports.";
-                return false;
+                if (ch is < '0' or > '9')
+                {
+                    error = $"Character '{ch}' is not a digit; numeric compaction requires an all-digit value.";
+                    return false;
+                }
             }
 
-            bytes[i] = (byte)value[i];
+            highLevel = Pdf417NumericCompaction.EncodeDigits(value);
+        }
+        else
+        {
+            var bytes = new byte[value.Length];
+
+            for (var i = 0; i < value.Length; i++)
+            {
+                if (value[i] > 255)
+                {
+                    error = $"Character '{value[i]}' is outside the 0-255 byte range this PDF417 encoder supports.";
+                    return false;
+                }
+
+                bytes[i] = (byte)value[i];
+            }
+
+            highLevel = Pdf417HighLevelEncoder.EncodeBytes(bytes);
         }
 
-        var highLevel = Pdf417HighLevelEncoder.EncodeBytes(bytes);
         var sourceCodeWords = highLevel.Length;
 
         int level;

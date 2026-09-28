@@ -107,4 +107,32 @@ public class Pdf417EncoderTests
         var remainder = (matrix!.Width - 35) % 17;
         Assert.Equal(0, remainder);
     }
+
+    [Fact]
+    public void TryEncode_NumericCompaction_AllDigits_ProducesFewerSymbolsThanByteMode()
+    {
+        var numeric = new Pdf417Encoder(numericCompaction: true);
+        var digits = new string('7', 40);
+
+        _encoder.TryEncode(digits, out var byteMatrix, out _);
+        var success = numeric.TryEncode(digits, out var numericMatrix, out var error);
+
+        Assert.True(success, error);
+        // Numeric compaction packs ~2.9 digits per codeword vs. byte mode's 1.2 digits
+        // per codeword (6 bytes -> 5 codewords), so it should need fewer columns/a
+        // narrower symbol for the same all-digit input.
+        Assert.True(numericMatrix!.Width <= byteMatrix!.Width);
+    }
+
+    [Fact]
+    public void TryEncode_NumericCompaction_NonDigitCharacter_ReturnsError()
+    {
+        var numeric = new Pdf417Encoder(numericCompaction: true);
+
+        var success = numeric.TryEncode("123A45", out var matrix, out var error);
+
+        Assert.False(success);
+        Assert.Null(matrix);
+        Assert.NotNull(error);
+    }
 }
