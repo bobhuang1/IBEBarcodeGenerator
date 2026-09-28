@@ -23,6 +23,40 @@ public class QrRoundTripTests
         Assert.Equal(original, decoded);
     }
 
+    [Theory]
+    [InlineData("0")]
+    [InlineData("01")]
+    [InlineData("012")]
+    [InlineData("0123456789012345678901234567890")]
+    public void EncodeThenDecode_NumericMode_RoundTripsExactly(string digits)
+    {
+        var encoder = new QrEncoder('M');
+        var success = encoder.TryEncode(digits, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = Decode(matrix!);
+
+        Assert.Equal(digits, decoded);
+    }
+
+    [Theory]
+    [InlineData("A")]
+    [InlineData("AB")]
+    [InlineData("ABC")]
+    [InlineData("HTTP://WWW.EXAMPLE.COM/PATH:123")]
+    public void EncodeThenDecode_AlphanumericMode_RoundTripsExactly(string value)
+    {
+        var encoder = new QrEncoder('M');
+        var success = encoder.TryEncode(value, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = Decode(matrix!);
+
+        Assert.Equal(value, decoded);
+    }
+
     [Fact]
     public void EncodeThenDecode_HigherVersionMultiBlock_RoundTripsExactly()
     {
@@ -203,16 +237,95 @@ public class QrRoundTripTests
             }
         }
 
-        var countBits = version <= 9 ? 8 : 16;
         var mode = ReadBits(codewordBits, 0, 4);
-        Assert.Equal(0b0100, mode);
+        var range = version <= 9 ? 0 : version <= 26 ? 1 : 2;
 
-        var length = ReadBits(codewordBits, 4, countBits);
-        var bytes = new byte[length];
-
-        for (var i = 0; i < length; i++)
+        int countBits = mode switch
         {
-            bytes[i] = (byte)ReadBits(codewordBits, 4 + countBits + (i * 8), 8);
+            0b0001 => new[] { 10, 12, 14 }[range],
+            0b0010 => new[] { 9, 11, 13 }[range],
+            0b0100 => new[] { 8, 16, 16 }[range],
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), $"Unexpected mode {mode}"),
+        };
+
+        var count = ReadBits(codewordBits, 4, countBits);
+        var pos = 4 + countBits;
+
+        if (mode == 0b0001)
+        {
+            var chars = new char[count];
+            var written = 0;
+
+            while (written < count)
+            {
+                var remaining = count - written;
+
+                if (remaining >= 3)
+                {
+                    var v = ReadBits(codewordBits, pos, 10);
+                    pos += 10;
+                    chars[written] = (char)('0' + (v / 100));
+                    chars[written + 1] = (char)('0' + ((v / 10) % 10));
+                    chars[written + 2] = (char)('0' + (v % 10));
+                    written += 3;
+                }
+                else if (remaining == 2)
+                {
+                    var v = ReadBits(codewordBits, pos, 7);
+                    pos += 7;
+                    chars[written] = (char)('0' + (v / 10));
+                    chars[written + 1] = (char)('0' + (v % 10));
+                    written += 2;
+                }
+                else
+                {
+                    var v = ReadBits(codewordBits, pos, 4);
+                    pos += 4;
+                    chars[written] = (char)('0' + v);
+                    written += 1;
+                }
+            }
+
+            return new string(chars);
+        }
+
+        if (mode == 0b0010)
+        {
+            // ISO/IEC 18004 Table 5, independently re-typed for this reverse lookup rather
+            // than reusing QrAlphanumeric's forward table.
+            const string alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:";
+            var chars = new char[count];
+            var written = 0;
+
+            while (written < count)
+            {
+                var remaining = count - written;
+
+                if (remaining >= 2)
+                {
+                    var v = ReadBits(codewordBits, pos, 11);
+                    pos += 11;
+                    chars[written] = alphabet[v / 45];
+                    chars[written + 1] = alphabet[v % 45];
+                    written += 2;
+                }
+                else
+                {
+                    var v = ReadBits(codewordBits, pos, 6);
+                    pos += 6;
+                    chars[written] = alphabet[v];
+                    written += 1;
+                }
+            }
+
+            return new string(chars);
+        }
+
+        var bytes = new byte[count];
+
+        for (var i = 0; i < count; i++)
+        {
+            bytes[i] = (byte)ReadBits(codewordBits, pos + (i * 8), 8);
         }
 
         return Encoding.UTF8.GetString(bytes);

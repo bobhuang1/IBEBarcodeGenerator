@@ -34,6 +34,10 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         _level = errorCorrectionLevel;
     }
 
+    private const int ModeNumeric = 0b0001;
+    private const int ModeAlphanumeric = 0b0010;
+    private const int ModeByte = 0b0100;
+
     public bool TryEncode(string value, out BarcodeMatrix? matrix, out string? error)
     {
         matrix = null;
@@ -45,16 +49,18 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         }
 
         var dataBytes = Encoding.UTF8.GetBytes(value);
+        var mode = DetectMode(value);
+        var unitCount = mode == ModeByte ? dataBytes.Length : value.Length;
         var levelIndex = Array.IndexOf(LevelOrder, _level);
 
-        if (!TrySelectVersion(dataBytes.Length, levelIndex, out var versionInfo))
+        if (!TrySelectVersion(mode, unitCount, levelIndex, out var versionInfo))
         {
             error = $"Value is too large to encode at error correction level {_level} within the supported QR versions (1-40).";
             return false;
         }
 
-        var countBits = versionInfo.Version <= 9 ? 8 : 16;
-        var codewords = BuildCodewords(dataBytes, versionInfo.LevelsLmqh[levelIndex], countBits);
+        var countBits = CountBitsFor(mode, versionInfo.Version);
+        var codewords = BuildCodewords(value, dataBytes, mode, unitCount, versionInfo.LevelsLmqh[levelIndex], countBits);
         var version = versionInfo.Version;
         var size = 17 + 4 * version;
         var modules = new bool[size, size];
@@ -80,12 +86,57 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         return true;
     }
 
-    private static bool TrySelectVersion(int dataByteCount, int levelIndex, out QrVersionTable.VersionInfo versionInfo)
+    private static int DetectMode(string value)
+    {
+        var allNumeric = true;
+        var allAlphanumeric = true;
+
+        foreach (var ch in value)
+        {
+            if (ch is < '0' or > '9')
+            {
+                allNumeric = false;
+            }
+
+            if (!QrAlphanumeric.TryGetCode(ch, out _))
+            {
+                allAlphanumeric = false;
+            }
+        }
+
+        if (allNumeric)
+        {
+            return ModeNumeric;
+        }
+
+        return allAlphanumeric ? ModeAlphanumeric : ModeByte;
+    }
+
+    private static int CountBitsFor(int mode, int version)
+    {
+        var range = version <= 9 ? 0 : version <= 26 ? 1 : 2;
+
+        return mode switch
+        {
+            ModeNumeric => new[] { 10, 12, 14 }[range],
+            ModeAlphanumeric => new[] { 9, 11, 13 }[range],
+            _ => new[] { 8, 16, 16 }[range],
+        };
+    }
+
+    private static int DataBitsFor(int mode, int unitCount) => mode switch
+    {
+        ModeNumeric => (10 * (unitCount / 3)) + ((unitCount % 3) switch { 0 => 0, 1 => 4, _ => 7 }),
+        ModeAlphanumeric => (11 * (unitCount / 2)) + (unitCount % 2 == 1 ? 6 : 0),
+        _ => unitCount * 8,
+    };
+
+    private static bool TrySelectVersion(int mode, int unitCount, int levelIndex, out QrVersionTable.VersionInfo versionInfo)
     {
         foreach (var candidate in QrVersionTable.Versions)
         {
-            var countBits = candidate.Version <= 9 ? 8 : 16;
-            var neededBits = 4 + countBits + (dataByteCount * 8);
+            var countBits = CountBitsFor(mode, candidate.Version);
+            var neededBits = 4 + countBits + DataBitsFor(mode, unitCount);
             var totalDataCodewords = TotalDataCodewords(candidate.LevelsLmqh[levelIndex]);
 
             if (neededBits <= totalDataCodewords * 8)
@@ -111,17 +162,29 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         return total;
     }
 
-    private static byte[] BuildCodewords(byte[] dataBytes, QrVersionTable.EcBlocks ecBlocks, int countBits)
+    private static byte[] BuildCodewords(string value, byte[] dataBytes, int mode, int unitCount, QrVersionTable.EcBlocks ecBlocks, int countBits)
     {
         var totalDataCodewords = TotalDataCodewords(ecBlocks);
 
         var writer = new QrBitWriter();
-        writer.AppendBits(0b0100, 4);
-        writer.AppendBits(dataBytes.Length, countBits);
+        writer.AppendBits(mode, 4);
+        writer.AppendBits(unitCount, countBits);
 
-        foreach (var b in dataBytes)
+        switch (mode)
         {
-            writer.AppendBits(b, 8);
+            case ModeNumeric:
+                AppendNumeric(value, writer);
+                break;
+            case ModeAlphanumeric:
+                AppendAlphanumeric(value, writer);
+                break;
+            default:
+                foreach (var b in dataBytes)
+                {
+                    writer.AppendBits(b, 8);
+                }
+
+                break;
         }
 
         var capacityBits = totalDataCodewords * 8;
@@ -192,6 +255,56 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         }
 
         return result.ToArray();
+    }
+
+    private static void AppendNumeric(string value, QrBitWriter writer)
+    {
+        var i = 0;
+
+        while (i < value.Length)
+        {
+            var remaining = value.Length - i;
+
+            if (remaining >= 3)
+            {
+                var v = ((value[i] - '0') * 100) + ((value[i + 1] - '0') * 10) + (value[i + 2] - '0');
+                writer.AppendBits(v, 10);
+                i += 3;
+            }
+            else if (remaining == 2)
+            {
+                var v = ((value[i] - '0') * 10) + (value[i + 1] - '0');
+                writer.AppendBits(v, 7);
+                i += 2;
+            }
+            else
+            {
+                writer.AppendBits(value[i] - '0', 4);
+                i += 1;
+            }
+        }
+    }
+
+    private static void AppendAlphanumeric(string value, QrBitWriter writer)
+    {
+        var i = 0;
+
+        while (i < value.Length)
+        {
+            QrAlphanumeric.TryGetCode(value[i], out var code1);
+
+            if (i + 1 < value.Length)
+            {
+                QrAlphanumeric.TryGetCode(value[i + 1], out var code2);
+                writer.AppendBits((code1 * 45) + code2, 11);
+                i += 2;
+            }
+            else
+            {
+                writer.AppendBits(code1, 6);
+                i += 1;
+            }
+        }
     }
 
     private static void PlaceFinderPattern(bool[,] modules, bool[,] reserved, int xStart, int yStart, int size)

@@ -110,4 +110,51 @@ public class QrEncoderTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new QrEncoder('X'));
     }
+
+    [Fact]
+    public void TryEncode_AllDigits_AutoSelectsNumericModeAndFitsSmallerVersionThanMixedCase()
+    {
+        var encoder = new QrEncoder('L');
+        var digits = new string('1', 60);
+        var lowercase = new string('a', 60); // forces byte mode (lowercase isn't alphanumeric-eligible)
+
+        var numericSuccess = encoder.TryEncode(digits, out var numericMatrix, out var numericError);
+        var byteSuccess = encoder.TryEncode(lowercase, out var byteMatrix, out var byteError);
+
+        Assert.True(numericSuccess, numericError);
+        Assert.True(byteSuccess, byteError);
+        // Numeric mode packs ~3.33 bits/digit vs. byte mode's 8 bits/char, so the same
+        // character count should need a smaller (or equal) symbol.
+        Assert.True(numericMatrix!.Width <= byteMatrix!.Width);
+    }
+
+    [Fact]
+    public void TryEncode_UppercaseAndDigits_AutoSelectsAlphanumericModeAndFitsSmallerVersionThanMixedCase()
+    {
+        var encoder = new QrEncoder('L');
+        var alphanumeric = new string('A', 60);
+        var lowercase = new string('a', 60);
+
+        var alphanumericSuccess = encoder.TryEncode(alphanumeric, out var alphanumericMatrix, out var alphanumericError);
+        var byteSuccess = encoder.TryEncode(lowercase, out var byteMatrix, out var byteError);
+
+        Assert.True(alphanumericSuccess, alphanumericError);
+        Assert.True(byteSuccess, byteError);
+        Assert.True(alphanumericMatrix!.Width <= byteMatrix!.Width);
+    }
+
+    [Fact]
+    public void TryEncode_LowercaseLetters_UsesByteMode()
+    {
+        // Lowercase letters aren't in the QR alphanumeric table, so this must fall back to
+        // byte mode -- confirmed indirectly by round-trip tests, and directly here by
+        // successful encoding of a character set that would error out if numeric/
+        // alphanumeric encoding were incorrectly forced.
+        var encoder = new QrEncoder('M');
+
+        var success = encoder.TryEncode("hello world!", out var matrix, out var error);
+
+        Assert.True(success, error);
+        Assert.NotNull(matrix);
+    }
 }
