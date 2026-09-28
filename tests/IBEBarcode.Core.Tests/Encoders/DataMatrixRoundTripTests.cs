@@ -9,6 +9,10 @@ public class DataMatrixRoundTripTests
     [InlineData("Hi")]
     [InlineData("Data Matrix!")]
     [InlineData("The quick brown fox 123")]
+    [InlineData("ABCD")] // forces interior 10 (dataCapacity 5)
+    [InlineData("ABCDEFGHIJKL")] // forces interior 14 (dataCapacity 12)
+    [InlineData("1234567890123456789012")] // forces interior 18 (dataCapacity 22)
+    [InlineData("123456789012345678901234567890123456")] // forces interior 22 (dataCapacity 36)
     public void EncodeThenDecode_RoundTripsExactly(string original)
     {
         var encoder = new DataMatrixEncoder();
@@ -29,9 +33,13 @@ public class DataMatrixRoundTripTests
         var dataCapacity = interiorSize switch
         {
             8 => 3,
+            10 => 5,
             12 => 8,
+            14 => 12,
             16 => 18,
+            18 => 22,
             20 => 30,
+            22 => 36,
             24 => 44,
             _ => throw new ArgumentOutOfRangeException(nameof(matrix)),
         };
