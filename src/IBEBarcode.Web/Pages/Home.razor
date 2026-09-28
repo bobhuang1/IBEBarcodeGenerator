@@ -1,7 +1,9 @@
 @page "/"
 @using IBEBarcode.Core
 @using IBEBarcode.Core.Encoders
+@using IBEBarcode.Printing
 @using IBEBarcode.Rendering
+@using IBEBarcode.Templates
 
 <PageTitle>IBE Barcode Generator</PageTitle>
 
@@ -32,6 +34,28 @@
     <img src="@PreviewImageDataUri" style="max-width:600px;border:1px solid gray;padding:8px" />
 }
 
+<div class="mb-3" style="margin-top:12px">
+    <label>Paper template</label>
+    <select class="form-select" @bind="SelectedTemplateCode">
+        @foreach (var t in AvailableTemplates)
+        {
+            <option value="@t.Code">@t.ToString()</option>
+        }
+    </select>
+</div>
+
+<button class="btn btn-primary" @onclick="GenerateLabelSheetPdf">Generate Label Sheet PDF</button>
+
+@if (PdfErrorMessage is not null)
+{
+    <p style="color:red">@PdfErrorMessage</p>
+}
+
+@if (PdfDataUri is not null)
+{
+    <p><a href="@PdfDataUri" download="label-sheet.pdf">Download label-sheet.pdf</a> (@PdfByteCount bytes)</p>
+}
+
 @code {
     private string _inputText = "HELLO123";
     private SupportedSymbology _selectedSymbology = SupportedSymbology.Code39;
@@ -50,9 +74,61 @@
 
     private string? ErrorMessage;
     private string? PreviewImageDataUri;
+    private byte[]? _lastPngBytes;
+    private string _selectedTemplateCode = "5160";
+    private string? PdfErrorMessage;
+    private string? PdfDataUri;
+    private int PdfByteCount;
+
+    private string SelectedTemplateCode
+    {
+        get => _selectedTemplateCode;
+        set => _selectedTemplateCode = value;
+    }
 
     public IReadOnlyList<SupportedSymbology> AvailableSymbologies { get; } =
         Enum.GetValues<SupportedSymbology>();
+
+    public IReadOnlyList<PaperTemplate> AvailableTemplates { get; } =
+        PaperTemplateCatalog.AllTemplates;
+
+    private void GenerateLabelSheetPdf()
+    {
+        PdfErrorMessage = null;
+        PdfDataUri = null;
+
+        if (_lastPngBytes is null)
+        {
+            PdfErrorMessage = "Generate a valid barcode before exporting a label sheet.";
+            return;
+        }
+
+        var template = AvailableTemplates.FirstOrDefault(t => t.Code == SelectedTemplateCode);
+
+        if (template is null)
+        {
+            PdfErrorMessage = "Select a paper template before exporting a label sheet.";
+            return;
+        }
+
+        try
+        {
+            var images = new List<byte[]>();
+
+            for (var i = 0; i < template.LabelCount; i++)
+            {
+                images.Add(_lastPngBytes);
+            }
+
+            var pdfBytes = LabelSheetPdfGenerator.Generate(template, images);
+            PdfByteCount = pdfBytes.Length;
+            PdfDataUri = $"data:application/pdf;base64,{Convert.ToBase64String(pdfBytes)}";
+        }
+        catch (Exception ex)
+        {
+            PdfErrorMessage = $"PDF generation failed: {ex.GetType().Name}: {ex.Message}";
+        }
+    }
 
     protected override void OnInitialized() => Regenerate();
 
@@ -60,6 +136,7 @@
     {
         ErrorMessage = null;
         PreviewImageDataUri = null;
+        _lastPngBytes = null;
 
         if (string.IsNullOrEmpty(InputText))
         {
@@ -123,6 +200,7 @@
                 pngBytes = BarcodeRenderer.RenderToPng(pattern!, new BarcodeRenderOptions { ModuleWidthPixels = 2, QuietZoneModules = 10, BarHeightPixels = 80, ShowHumanReadableText = true, TextHeightPixels = 24 });
             }
 
+            _lastPngBytes = pngBytes;
             PreviewImageDataUri = $"data:image/png;base64,{Convert.ToBase64String(pngBytes)}";
         }
         catch (Exception ex)
