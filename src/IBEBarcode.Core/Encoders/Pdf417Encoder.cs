@@ -17,12 +17,14 @@ public sealed class Pdf417Encoder : IMatrixBarcodeEncoder
     private readonly int? _errorCorrectionLevel;
     private readonly bool _compact;
     private readonly bool _numericCompaction;
+    private readonly bool _textCompaction;
 
-    public Pdf417Encoder(int? errorCorrectionLevel = null, bool compact = false, bool numericCompaction = false)
+    public Pdf417Encoder(int? errorCorrectionLevel = null, bool compact = false, bool numericCompaction = false, bool textCompaction = false)
     {
         _errorCorrectionLevel = errorCorrectionLevel;
         _compact = compact;
         _numericCompaction = numericCompaction;
+        _textCompaction = textCompaction;
     }
 
     public BarcodeSymbology Symbology => BarcodeSymbology.Pdf417;
@@ -34,6 +36,12 @@ public sealed class Pdf417Encoder : IMatrixBarcodeEncoder
         if (string.IsNullOrEmpty(value))
         {
             error = "Value must not be empty.";
+            return false;
+        }
+
+        if (_numericCompaction && _textCompaction)
+        {
+            error = "numericCompaction and textCompaction cannot both be enabled.";
             return false;
         }
 
@@ -51,6 +59,13 @@ public sealed class Pdf417Encoder : IMatrixBarcodeEncoder
             }
 
             highLevel = Pdf417NumericCompaction.EncodeDigits(value);
+        }
+        else if (_textCompaction)
+        {
+            if (!Pdf417TextCompaction.TryEncodeText(value, out highLevel, out error))
+            {
+                return false;
+            }
         }
         else
         {

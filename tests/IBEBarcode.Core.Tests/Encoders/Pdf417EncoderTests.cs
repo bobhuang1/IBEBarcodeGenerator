@@ -135,4 +135,41 @@ public class Pdf417EncoderTests
         Assert.Null(matrix);
         Assert.NotNull(error);
     }
+
+    [Fact]
+    public void TryEncode_TextCompaction_AllText_ProducesFewerSymbolsThanByteMode()
+    {
+        var text = new Pdf417Encoder(textCompaction: true);
+        var value = new string('A', 40);
+
+        _encoder.TryEncode(value, out var byteMatrix, out _);
+        var success = text.TryEncode(value, out var textMatrix, out var error);
+
+        Assert.True(success, error);
+        Assert.True(textMatrix!.Width <= byteMatrix!.Width);
+    }
+
+    [Fact]
+    public void TryEncode_TextCompaction_UnsupportedCharacter_ReturnsError()
+    {
+        var text = new Pdf417Encoder(textCompaction: true);
+
+        var success = text.TryEncode("café", out var matrix, out var error);
+
+        Assert.False(success);
+        Assert.Null(matrix);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void TryEncode_BothCompactionModesEnabled_ReturnsError()
+    {
+        var both = new Pdf417Encoder(numericCompaction: true, textCompaction: true);
+
+        var success = both.TryEncode("123", out var matrix, out var error);
+
+        Assert.False(success);
+        Assert.Null(matrix);
+        Assert.NotNull(error);
+    }
 }

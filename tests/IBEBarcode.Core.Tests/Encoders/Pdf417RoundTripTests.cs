@@ -36,6 +36,23 @@ public class Pdf417RoundTripTests
     }
 
     [Fact]
+    public void EncodeThenDecode_TextCompaction_AllFourSubmodesRoundTripExactly()
+    {
+        var encoder = new Pdf417Encoder(textCompaction: true);
+        // Exercises Alpha (upper+space), Lower (via ll), Alpha-shift-from-lower (via as),
+        // Mixed (digits, via ml), Punctuation (via pl from Mixed), and single-char punct
+        // shifts (ps) from Alpha.
+        var text = "Hello world THERE 123.45,67:89 Wow! (test) #tag";
+        var success = encoder.TryEncode(text, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = Decode(matrix!);
+
+        Assert.Equal(text, decoded);
+    }
+
+    [Fact]
     public void EncodeThenDecode_NumericCompaction_RoundTripsExactly()
     {
         var encoder = new Pdf417Encoder(numericCompaction: true);
@@ -119,6 +136,11 @@ public class Pdf417RoundTripTests
 
         var highLevel = sourceAndPad.GetRange(0, lastNonPad + 1);
 
+        if (highLevel[0] == 900)
+        {
+            return DecodeText(highLevel.GetRange(1, highLevel.Count - 1));
+        }
+
         if (highLevel[0] == 902)
         {
             // Numeric compaction, scoped here (like the encoder) to a single <=44-digit
@@ -172,5 +194,175 @@ public class Pdf417RoundTripTests
         }
 
         return new string(chars);
+    }
+
+    private static string DecodeText(List<int> codewords)
+    {
+        // Independently re-derived (not reusing Pdf417TextCompaction's internals) raw
+        // forward tables, matching PDF417HighLevelEncoder's TEXT_MIXED_RAW/
+        // TEXT_PUNCTUATION_RAW byte-for-byte.
+        var mixedRaw = new[]
+        {
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '&', '\r', '\t', ',', ':',
+            '#', '-', '.', '$', '/', '+', '%', '*', '=', '^', '\0', ' ', '\0', '\0', '\0',
+        };
+
+        var punctuationRaw = new[]
+        {
+            ';', '<', '>', '@', '[', '\\', ']', '_', '`', '~', '!', '\r', '\t', ',', ':',
+            '\n', '-', '.', '$', '/', '"', '|', '*', '(', ')', '?', '{', '}', '\'', '\0',
+        };
+
+        var tmpValues = new List<int>();
+
+        foreach (var codeword in codewords)
+        {
+            tmpValues.Add(codeword / 30);
+            tmpValues.Add(codeword % 30);
+        }
+
+        const int alpha = 0;
+        const int lower = 1;
+        const int mixed = 2;
+        const int punctuation = 3;
+
+        var submode = alpha;
+        var output = new List<char>();
+        var i = 0;
+
+        while (i < tmpValues.Count)
+        {
+            var v = tmpValues[i];
+
+            switch (submode)
+            {
+                case alpha:
+                    if (v == 26)
+                    {
+                        output.Add(' ');
+                        i++;
+                    }
+                    else if (v == 27)
+                    {
+                        submode = lower;
+                        i++;
+                    }
+                    else if (v == 28)
+                    {
+                        submode = mixed;
+                        i++;
+                    }
+                    else if (v == 29)
+                    {
+                        if (i + 1 >= tmpValues.Count)
+                        {
+                            i = tmpValues.Count;
+                            break;
+                        }
+
+                        output.Add(punctuationRaw[tmpValues[i + 1]]);
+                        i += 2;
+                    }
+                    else
+                    {
+                        output.Add((char)('A' + v));
+                        i++;
+                    }
+
+                    break;
+
+                case lower:
+                    if (v == 26)
+                    {
+                        output.Add(' ');
+                        i++;
+                    }
+                    else if (v == 27)
+                    {
+                        if (i + 1 >= tmpValues.Count)
+                        {
+                            i = tmpValues.Count;
+                            break;
+                        }
+
+                        output.Add((char)('A' + tmpValues[i + 1]));
+                        i += 2;
+                    }
+                    else if (v == 28)
+                    {
+                        submode = mixed;
+                        i++;
+                    }
+                    else if (v == 29)
+                    {
+                        if (i + 1 >= tmpValues.Count)
+                        {
+                            i = tmpValues.Count;
+                            break;
+                        }
+
+                        output.Add(punctuationRaw[tmpValues[i + 1]]);
+                        i += 2;
+                    }
+                    else
+                    {
+                        output.Add((char)('a' + v));
+                        i++;
+                    }
+
+                    break;
+
+                case mixed:
+                    if (v == 25)
+                    {
+                        submode = punctuation;
+                        i++;
+                    }
+                    else if (v == 28)
+                    {
+                        submode = alpha;
+                        i++;
+                    }
+                    else if (v == 27)
+                    {
+                        submode = lower;
+                        i++;
+                    }
+                    else if (v == 29)
+                    {
+                        if (i + 1 >= tmpValues.Count)
+                        {
+                            i = tmpValues.Count;
+                            break;
+                        }
+
+                        output.Add(punctuationRaw[tmpValues[i + 1]]);
+                        i += 2;
+                    }
+                    else
+                    {
+                        output.Add(mixedRaw[v]);
+                        i++;
+                    }
+
+                    break;
+
+                default: // punctuation
+                    if (v == 29)
+                    {
+                        submode = alpha;
+                        i++;
+                    }
+                    else
+                    {
+                        output.Add(punctuationRaw[v]);
+                        i++;
+                    }
+
+                    break;
+            }
+        }
+
+        return new string(output.ToArray());
     }
 }
