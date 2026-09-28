@@ -28,6 +28,7 @@ public enum SupportedSymbology
     QrCode,
     Postnet,
     DataMatrix,
+    Pdf417,
 }
 
 public partial class MainViewModel : ViewModelBase
@@ -109,11 +110,14 @@ public partial class MainViewModel : ViewModelBase
         {
             byte[] pngBytes;
 
-            if (SelectedSymbology == SupportedSymbology.QrCode || SelectedSymbology == SupportedSymbology.DataMatrix)
+            if (SelectedSymbology is SupportedSymbology.QrCode or SupportedSymbology.DataMatrix or SupportedSymbology.Pdf417)
             {
-                IMatrixBarcodeEncoder matrixEncoder = SelectedSymbology == SupportedSymbology.QrCode
-                    ? new QrEncoder()
-                    : new DataMatrixEncoder();
+                IMatrixBarcodeEncoder matrixEncoder = SelectedSymbology switch
+                {
+                    SupportedSymbology.QrCode => new QrEncoder(),
+                    SupportedSymbology.DataMatrix => new DataMatrixEncoder(),
+                    _ => new Pdf417Encoder(),
+                };
 
                 if (!matrixEncoder.TryEncode(InputText, out var matrix, out var error))
                 {
