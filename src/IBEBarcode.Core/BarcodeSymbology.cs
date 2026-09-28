@@ -17,4 +17,6 @@ public enum BarcodeSymbology
     QrCode,
     Gs1_128,
     UpcE,
+    Upc2DigitSupplement,
+    Upc5DigitSupplement,
 }
