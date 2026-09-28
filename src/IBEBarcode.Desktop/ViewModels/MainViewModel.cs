@@ -26,6 +26,7 @@ public enum SupportedSymbology
     UpcE,
     Isbn,
     QrCode,
+    Postnet,
 }
 
 public partial class MainViewModel : ViewModelBase
@@ -118,6 +119,18 @@ public partial class MainViewModel : ViewModelBase
                 }
 
                 pngBytes = MatrixRenderer.RenderToPng(matrix!, new MatrixRenderOptions { ModuleSizePixels = 8, QuietZoneModules = 4 });
+            }
+            else if (SelectedSymbology == SupportedSymbology.Postnet)
+            {
+                var postnetEncoder = new PostnetEncoder();
+
+                if (!postnetEncoder.TryEncode(InputText, out var heightPattern, out var error))
+                {
+                    ErrorMessage = error;
+                    return;
+                }
+
+                pngBytes = HeightBarRenderer.RenderToPng(heightPattern!, new HeightBarRenderOptions { BarWidthPixels = 3, GapPixels = 2 });
             }
             else
             {
