@@ -19,8 +19,8 @@ preview and paper-template PDF label sheet export. See
   (no graphics dependency, no third-party barcode library). Formats: Code 39,
   Extended Code 39, Codabar, Interleaved 2 of 5, MSI Plessey, Code 93,
   Code 128 (Set A/B/C), EAN-13, EAN-8, UPC-A, UPC-E, UPC 2-digit and
-  5-digit supplements, GS1-128 (numeric), ISBN (Bookland), Postnet, and
-  QR Code.
+  5-digit supplements, GS1-128 (numeric), ISBN (Bookland), Postnet,
+  QR Code, and Data Matrix (ASCII mode, 5 square sizes).
 - `src/IBEBarcode.Rendering` — SkiaSharp renderers for all three pattern
   shapes: linear (`BarcodeRenderer`), 2D grid (`MatrixRenderer` for QR),
   and height-varying (`HeightBarRenderer` for Postnet).
