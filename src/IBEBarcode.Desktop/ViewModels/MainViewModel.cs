@@ -29,6 +29,7 @@ public enum SupportedSymbology
     Postnet,
     DataMatrix,
     Pdf417,
+    Aztec,
 }
 
 public partial class MainViewModel : ViewModelBase
@@ -110,13 +111,14 @@ public partial class MainViewModel : ViewModelBase
         {
             byte[] pngBytes;
 
-            if (SelectedSymbology is SupportedSymbology.QrCode or SupportedSymbology.DataMatrix or SupportedSymbology.Pdf417)
+            if (SelectedSymbology is SupportedSymbology.QrCode or SupportedSymbology.DataMatrix or SupportedSymbology.Pdf417 or SupportedSymbology.Aztec)
             {
                 IMatrixBarcodeEncoder matrixEncoder = SelectedSymbology switch
                 {
                     SupportedSymbology.QrCode => new QrEncoder(),
                     SupportedSymbology.DataMatrix => new DataMatrixEncoder(),
-                    _ => new Pdf417Encoder(),
+                    SupportedSymbology.Pdf417 => new Pdf417Encoder(),
+                    _ => new AztecEncoder(),
                 };
 
                 if (!matrixEncoder.TryEncode(InputText, out var matrix, out var error))
