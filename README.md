@@ -23,8 +23,9 @@ preview and paper-template PDF label sheet export. See
   (numeric, or the full official GS1 Application Identifier element-string
   notation), ISBN (Bookland), Postnet, QR Code (auto Numeric/
   Alphanumeric/Byte mode selection, all 40 versions, multi-block
-  Reed-Solomon), Data Matrix (ASCII mode, all 9
-  square sizes plus 2 rectangular sizes), PDF417 (Byte Compaction by
+  Reed-Solomon, mask-pattern scoring), Data Matrix (ASCII mode, all 9
+  square sizes plus 2 rectangular sizes, multi-region and multi-block
+  up to 1304 bytes), PDF417 (Byte Compaction by
   default, plus optional Compact/Numeric Compaction/Text Compaction
   modes), and Aztec Code (Binary Shift mode, all layers 1-32).
 - `src/IBEBarcode.Rendering` — SkiaSharp renderers for all three pattern
