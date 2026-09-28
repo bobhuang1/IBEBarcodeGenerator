@@ -989,10 +989,18 @@ EOF
 
 ## What's next (not in this plan)
 
-Larger/rectangular Data Matrix symbols and the sizes with unused
-modules (needs pinning down the exact fixed value for those positions
-first). C40/Text/X12/EDIFACT/Base256 encoding modes and digit-pair
-density optimization. Multi-block Reed-Solomon (needed for symbols
-beyond dataCapacity 44). Wiring `DataMatrix` into `MatrixRenderer`
-usage in the desktop/web symbology pickers. PDF417, Aztec. GS1-128 AI
-parsing. Mid-message Code128 subset switching.
+Larger/rectangular Data Matrix symbols. C40/Text/X12/EDIFACT/Base256
+encoding modes and digit-pair density optimization. Multi-block
+Reed-Solomon (needed for symbols beyond dataCapacity 44).
+
+**Update (2026-09-27, later in the session):** the "unused module value"
+ambiguity above was resolved by empirically probing this plan's own
+`DataMatrixPlacement` for interior sizes 10/14/18/22 — it turned out to
+be exactly 2 untouched positions per size (not 4), always at
+`(N-1, N-2)` and `(N-2, N-1)`, never read as data by a spec-compliant
+decoder (which derives the same untouched set from the identical
+algorithm), so no code change or special-casing was needed at all —
+just the 4 additional Reed-Solomon factor rows. All 9 square sizes
+(interior 8×8 through 24×24) are now supported; see the
+`DataMatrixSymbols.Sizes` comment and the "Extend Data Matrix to
+interior sizes 10/14/18/22" commit for details.
