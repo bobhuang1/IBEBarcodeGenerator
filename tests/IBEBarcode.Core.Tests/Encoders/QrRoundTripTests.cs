@@ -1,5 +1,6 @@
 using System.Text;
 using IBEBarcode.Core.Encoders;
+using IBEBarcode.Core.Encoders.Qr;
 
 namespace IBEBarcode.Core.Tests.Encoders;
 
@@ -22,6 +23,25 @@ public class QrRoundTripTests
         Assert.Equal(original, decoded);
     }
 
+    [Fact]
+    public void EncodeThenDecode_HigherVersionMultiBlock_RoundTripsExactly()
+    {
+        // 300 bytes at level M forces version >= 10 (16-bit count field) with multiple
+        // Reed-Solomon blocks and, once past version 6, real version-info codewords.
+        var encoder = new QrEncoder('M');
+        var value = string.Concat(Enumerable.Range(0, 300).Select(i => (char)('A' + (i % 26))));
+        var success = encoder.TryEncode(value, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var version = (matrix!.Width - 17) / 4;
+        Assert.True(version >= 10, $"expected a higher version, got {version}");
+
+        var decoded = Decode(matrix);
+
+        Assert.Equal(value, decoded);
+    }
+
     private static readonly (int X, int Y)[] FormatInfoCoordinates =
     {
         (8, 0), (8, 1), (8, 2), (8, 3), (8, 4), (8, 5), (8, 7),
@@ -35,6 +55,8 @@ public class QrRoundTripTests
         ["011010101011111"] = 'Q',
         ["001011010001001"] = 'H',
     };
+
+    private static readonly char[] LevelOrder = { 'L', 'M', 'Q', 'H' };
 
     private static string Decode(BarcodeMatrix matrix)
     {
@@ -52,14 +74,16 @@ public class QrRoundTripTests
         var formatString = new string(formatBits);
         Assert.True(LevelByFormatString.TryGetValue(formatString, out var level), $"Unrecognized format string: {formatString}");
 
-        var (dataCw, _) = CodewordCounts(version, level);
+        var levelIndex = Array.IndexOf(LevelOrder, level);
+        var versionInfo = QrVersionTable.Versions[version - 1];
+        var ecBlocks = versionInfo.LevelsLmqh[levelIndex];
 
         var reserved = new bool[size, size];
         MarkFinderReserved(reserved, 0, 0, size);
         MarkFinderReserved(reserved, size - 7, 0, size);
         MarkFinderReserved(reserved, 0, size - 7, size);
         MarkTimingReserved(reserved, size);
-        MarkAlignmentReserved(reserved, version, size);
+        MarkAlignmentReserved(reserved, versionInfo.AlignmentCenters);
         reserved[8, size - 8] = true;
 
         foreach (var (x, y) in FormatInfoCoordinates)
@@ -75,6 +99,25 @@ public class QrRoundTripTests
         for (var i = 8; i < 15; i++)
         {
             reserved[8, size - 7 + (i - 8)] = true;
+        }
+
+        if (version > 6)
+        {
+            for (var row = 0; row < 6; row++)
+            {
+                for (var col = size - 11; col <= size - 9; col++)
+                {
+                    reserved[col, row] = true;
+                }
+            }
+
+            for (var col = 0; col < 6; col++)
+            {
+                for (var row = size - 11; row <= size - 9; row++)
+                {
+                    reserved[col, row] = true;
+                }
+            }
         }
 
         var bits = new List<bool>();
@@ -116,16 +159,60 @@ public class QrRoundTripTests
             x2 -= 2;
         }
 
-        var dataBits = bits.Take(dataCw * 8).ToArray();
-        var mode = ReadBits(dataBits, 0, 4);
+        // Rebuild the block structure to de-interleave the codeword stream back into its
+        // original per-block, then concatenated, order.
+        var blockLengths = new List<int>();
+
+        foreach (var group in ecBlocks.Groups)
+        {
+            for (var i = 0; i < group.Count; i++)
+            {
+                blockLengths.Add(group.DataCodewords);
+            }
+        }
+
+        var totalDataCodewords = blockLengths.Sum();
+        var maxBlockLength = blockLengths.Max();
+
+        var codewordBits = new bool[totalDataCodewords * 8];
+        var bitPos = 0;
+        var blockOffsets = new int[blockLengths.Count];
+        var running = 0;
+
+        for (var b = 0; b < blockLengths.Count; b++)
+        {
+            blockOffsets[b] = running;
+            running += blockLengths[b];
+        }
+
+        for (var i = 0; i < maxBlockLength; i++)
+        {
+            for (var b = 0; b < blockLengths.Count; b++)
+            {
+                if (i >= blockLengths[b])
+                {
+                    continue;
+                }
+
+                var destCodewordIndex = blockOffsets[b] + i;
+
+                for (var bit = 0; bit < 8; bit++)
+                {
+                    codewordBits[(destCodewordIndex * 8) + bit] = bits[bitPos++];
+                }
+            }
+        }
+
+        var countBits = version <= 9 ? 8 : 16;
+        var mode = ReadBits(codewordBits, 0, 4);
         Assert.Equal(0b0100, mode);
 
-        var length = ReadBits(dataBits, 4, 8);
+        var length = ReadBits(codewordBits, 4, countBits);
         var bytes = new byte[length];
 
         for (var i = 0; i < length; i++)
         {
-            bytes[i] = (byte)ReadBits(dataBits, 12 + i * 8, 8);
+            bytes[i] = (byte)ReadBits(codewordBits, 4 + countBits + (i * 8), 8);
         }
 
         return Encoding.UTF8.GetString(bytes);
@@ -142,23 +229,6 @@ public class QrRoundTripTests
 
         return value;
     }
-
-    private static (int DataCw, int EccCw) CodewordCounts(int version, char level) => (version, level) switch
-    {
-        (1, 'L') => (19, 7),
-        (1, 'M') => (16, 10),
-        (1, 'Q') => (13, 13),
-        (1, 'H') => (9, 17),
-        (2, 'L') => (34, 10),
-        (2, 'M') => (28, 16),
-        (2, 'Q') => (22, 22),
-        (2, 'H') => (16, 28),
-        (3, 'L') => (55, 15),
-        (3, 'M') => (44, 26),
-        (4, 'L') => (80, 20),
-        (5, 'L') => (108, 26),
-        _ => throw new ArgumentOutOfRangeException(nameof(version)),
-    };
 
     private static void MarkFinderReserved(bool[,] reserved, int xStart, int yStart, int size)
     {
@@ -188,29 +258,34 @@ public class QrRoundTripTests
         }
     }
 
-    private static void MarkAlignmentReserved(bool[,] reserved, int version, int size)
+    private static void MarkAlignmentReserved(bool[,] reserved, int[] centers)
     {
-        if (version == 1)
-        {
-            return;
-        }
+        var max = centers.Length;
 
-        var center = version switch
+        for (var x = 0; x < max; x++)
         {
-            2 => 18,
-            3 => 22,
-            4 => 26,
-            5 => 30,
-            _ => throw new ArgumentOutOfRangeException(nameof(version)),
-        };
-
-        var start = center - 2;
-
-        for (var dy = 0; dy < 5; dy++)
-        {
-            for (var dx = 0; dx < 5; dx++)
+            for (var y = 0; y < max; y++)
             {
-                reserved[start + dx, start + dy] = true;
+                if (x == 0 && (y == 0 || y == max - 1))
+                {
+                    continue;
+                }
+
+                if (x == max - 1 && y == 0)
+                {
+                    continue;
+                }
+
+                var startX = centers[y] - 2;
+                var startY = centers[x] - 2;
+
+                for (var dy = 0; dy < 5; dy++)
+                {
+                    for (var dx = 0; dx < 5; dx++)
+                    {
+                        reserved[startX + dx, startY + dy] = true;
+                    }
+                }
             }
         }
     }

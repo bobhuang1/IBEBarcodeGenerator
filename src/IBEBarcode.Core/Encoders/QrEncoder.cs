@@ -8,26 +8,7 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
     public BarcodeSymbology Symbology => BarcodeSymbology.QrCode;
 
     private readonly char _level;
-
-    private static readonly (int Version, int DataCodewords, int EccCodewords)[] LevelL =
-    {
-        (1, 19, 7), (2, 34, 10), (3, 55, 15), (4, 80, 20), (5, 108, 26),
-    };
-
-    private static readonly (int Version, int DataCodewords, int EccCodewords)[] LevelM =
-    {
-        (1, 16, 10), (2, 28, 16), (3, 44, 26),
-    };
-
-    private static readonly (int Version, int DataCodewords, int EccCodewords)[] LevelQ =
-    {
-        (1, 13, 13), (2, 22, 22),
-    };
-
-    private static readonly (int Version, int DataCodewords, int EccCodewords)[] LevelH =
-    {
-        (1, 9, 17), (2, 16, 28),
-    };
+    private static readonly char[] LevelOrder = { 'L', 'M', 'Q', 'H' };
 
     private static readonly Dictionary<char, string> FormatStringsMask0 = new()
     {
@@ -64,14 +45,17 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         }
 
         var dataBytes = Encoding.UTF8.GetBytes(value);
+        var levelIndex = Array.IndexOf(LevelOrder, _level);
 
-        if (!TrySelectVersion(dataBytes.Length, out var version, out var dataCw, out var eccCw))
+        if (!TrySelectVersion(dataBytes.Length, levelIndex, out var versionInfo))
         {
-            error = $"Value is too large to encode at error correction level {_level} within the supported QR versions (1-5, single-block only).";
+            error = $"Value is too large to encode at error correction level {_level} within the supported QR versions (1-40).";
             return false;
         }
 
-        var codewords = BuildCodewords(dataBytes, dataCw, eccCw);
+        var countBits = versionInfo.Version <= 9 ? 8 : 16;
+        var codewords = BuildCodewords(dataBytes, versionInfo.LevelsLmqh[levelIndex], countBits);
+        var version = versionInfo.Version;
         var size = 17 + 4 * version;
         var modules = new bool[size, size];
         var reserved = new bool[size, size];
@@ -80,9 +64,15 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         PlaceFinderPattern(modules, reserved, size - 7, 0, size);
         PlaceFinderPattern(modules, reserved, 0, size - 7, size);
         PlaceTimingPatterns(modules, reserved, size);
-        PlaceAlignmentPattern(modules, reserved, version, size);
+        PlaceAlignmentPatterns(modules, reserved, versionInfo.AlignmentCenters);
         PlaceDarkModule(modules, reserved, size);
         PlaceFormatInfo(modules, reserved, size);
+
+        if (version > 6)
+        {
+            PlaceVersionInfo(modules, reserved, version, size);
+        }
+
         PlaceDataBits(modules, reserved, codewords, size);
 
         matrix = BarcodeMatrix.Create(value, modules);
@@ -90,48 +80,51 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         return true;
     }
 
-    private (int Version, int DataCodewords, int EccCodewords)[] SupportedCombos() => _level switch
+    private static bool TrySelectVersion(int dataByteCount, int levelIndex, out QrVersionTable.VersionInfo versionInfo)
     {
-        'L' => LevelL,
-        'M' => LevelM,
-        'Q' => LevelQ,
-        'H' => LevelH,
-        _ => throw new InvalidOperationException(),
-    };
-
-    private bool TrySelectVersion(int dataByteCount, out int version, out int dataCw, out int eccCw)
-    {
-        foreach (var (v, dcw, ecw) in SupportedCombos())
+        foreach (var candidate in QrVersionTable.Versions)
         {
-            var neededBits = 4 + 8 + dataByteCount * 8;
+            var countBits = candidate.Version <= 9 ? 8 : 16;
+            var neededBits = 4 + countBits + (dataByteCount * 8);
+            var totalDataCodewords = TotalDataCodewords(candidate.LevelsLmqh[levelIndex]);
 
-            if (neededBits <= dcw * 8)
+            if (neededBits <= totalDataCodewords * 8)
             {
-                version = v;
-                dataCw = dcw;
-                eccCw = ecw;
+                versionInfo = candidate;
                 return true;
             }
         }
 
-        version = 0;
-        dataCw = 0;
-        eccCw = 0;
+        versionInfo = null!;
         return false;
     }
 
-    private static byte[] BuildCodewords(byte[] dataBytes, int dataCw, int eccCw)
+    private static int TotalDataCodewords(QrVersionTable.EcBlocks ecBlocks)
     {
+        var total = 0;
+
+        foreach (var group in ecBlocks.Groups)
+        {
+            total += group.Count * group.DataCodewords;
+        }
+
+        return total;
+    }
+
+    private static byte[] BuildCodewords(byte[] dataBytes, QrVersionTable.EcBlocks ecBlocks, int countBits)
+    {
+        var totalDataCodewords = TotalDataCodewords(ecBlocks);
+
         var writer = new QrBitWriter();
         writer.AppendBits(0b0100, 4);
-        writer.AppendBits(dataBytes.Length, 8);
+        writer.AppendBits(dataBytes.Length, countBits);
 
         foreach (var b in dataBytes)
         {
             writer.AppendBits(b, 8);
         }
 
-        var capacityBits = dataCw * 8;
+        var capacityBits = totalDataCodewords * 8;
         var terminatorBits = Math.Min(4, capacityBits - writer.Count);
 
         if (terminatorBits > 0)
@@ -148,19 +141,57 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         var padBytes = new byte[] { 0xEC, 0x11 };
         var padIndex = 0;
 
-        while (dataCodewords.Count < dataCw)
+        while (dataCodewords.Count < totalDataCodewords)
         {
             dataCodewords.Add(padBytes[padIndex % 2]);
             padIndex++;
         }
 
         var dataArray = dataCodewords.ToArray();
-        var eccCodewords = QrReedSolomon.ComputeEccCodewords(dataArray, eccCw);
 
-        var allCodewords = new byte[dataCw + eccCw];
-        Array.Copy(dataArray, allCodewords, dataCw);
-        Array.Copy(eccCodewords, 0, allCodewords, dataCw, eccCw);
-        return allCodewords;
+        // Split into per-block data slices per the version's EC block groups, in order.
+        var blocks = new List<(byte[] Data, byte[] Ecc)>();
+        var offset = 0;
+
+        foreach (var group in ecBlocks.Groups)
+        {
+            for (var i = 0; i < group.Count; i++)
+            {
+                var blockData = new byte[group.DataCodewords];
+                Array.Copy(dataArray, offset, blockData, 0, group.DataCodewords);
+                offset += group.DataCodewords;
+
+                var blockEcc = QrReedSolomon.ComputeEccCodewords(blockData, ecBlocks.EccCodewordsPerBlock);
+                blocks.Add((blockData, blockEcc));
+            }
+        }
+
+        // Interleave: data codewords round-robin by index (ragged -- later blocks in a
+        // version can have one more data codeword than earlier ones), then ECC codewords
+        // round-robin (always uniform length across blocks).
+        var result = new List<byte>();
+        var maxDataLength = blocks.Max(b => b.Data.Length);
+
+        for (var i = 0; i < maxDataLength; i++)
+        {
+            foreach (var block in blocks)
+            {
+                if (i < block.Data.Length)
+                {
+                    result.Add(block.Data[i]);
+                }
+            }
+        }
+
+        for (var i = 0; i < ecBlocks.EccCodewordsPerBlock; i++)
+        {
+            foreach (var block in blocks)
+            {
+                result.Add(block.Ecc[i]);
+            }
+        }
+
+        return result.ToArray();
     }
 
     private static void PlaceFinderPattern(bool[,] modules, bool[,] reserved, int xStart, int yStart, int size)
@@ -217,30 +248,43 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         }
     }
 
-    private static void PlaceAlignmentPattern(bool[,] modules, bool[,] reserved, int version, int size)
+    private static void PlaceAlignmentPatterns(bool[,] modules, bool[,] reserved, int[] centers)
     {
-        if (version == 1)
+        var max = centers.Length;
+
+        for (var x = 0; x < max; x++)
         {
-            return;
+            var rowCenter = centers[x];
+
+            for (var y = 0; y < max; y++)
+            {
+                if (x == 0 && (y == 0 || y == max - 1))
+                {
+                    continue;
+                }
+
+                if (x == max - 1 && y == 0)
+                {
+                    continue;
+                }
+
+                var colCenter = centers[y];
+                PlaceOneAlignmentPattern(modules, reserved, colCenter, rowCenter);
+            }
         }
+    }
 
-        var center = version switch
-        {
-            2 => 18,
-            3 => 22,
-            4 => 26,
-            5 => 30,
-            _ => throw new ArgumentOutOfRangeException(nameof(version)),
-        };
-
-        var start = center - 2;
+    private static void PlaceOneAlignmentPattern(bool[,] modules, bool[,] reserved, int centerX, int centerY)
+    {
+        var startX = centerX - 2;
+        var startY = centerY - 2;
 
         for (var dy = 0; dy < 5; dy++)
         {
             for (var dx = 0; dx < 5; dx++)
             {
-                var x = start + dx;
-                var y = start + dy;
+                var x = startX + dx;
+                var y = startY + dy;
                 reserved[x, y] = true;
                 modules[x, y] = AlignmentPatternValue(dx, dy);
             }
@@ -291,6 +335,40 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
 
             modules[x2, y2] = bit;
             reserved[x2, y2] = true;
+        }
+    }
+
+    private static void PlaceVersionInfo(bool[,] modules, bool[,] reserved, int version, int size)
+    {
+        var versionBits = QrVersionTable.VersionDecodeInfo[version - 7];
+
+        // Top-right block: 3 wide x 6 tall. Bit order (MSB first): for row=5 downto 0,
+        // col=(size-9) downto (size-11).
+        var k = 0;
+
+        for (var row = 5; row >= 0; row--)
+        {
+            for (var col = size - 9; col >= size - 11; col--)
+            {
+                var bit = ((versionBits >> (17 - k)) & 1) != 0;
+                modules[col, row] = bit;
+                reserved[col, row] = true;
+                k++;
+            }
+        }
+
+        // Bottom-left block: 6 wide x 3 tall, same 18 bits transposed.
+        k = 0;
+
+        for (var col = 5; col >= 0; col--)
+        {
+            for (var row = size - 9; row >= size - 11; row--)
+            {
+                var bit = ((versionBits >> (17 - k)) & 1) != 0;
+                modules[col, row] = bit;
+                reserved[col, row] = true;
+                k++;
+            }
         }
     }
 

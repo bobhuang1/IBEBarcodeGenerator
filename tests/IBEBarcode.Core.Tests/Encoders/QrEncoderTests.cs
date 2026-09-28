@@ -85,8 +85,8 @@ public class QrEncoderTests
     {
         var encoder = new QrEncoder('H');
 
-        // Level H is only supported through version 2 (16 data codewords) in this implementation.
-        var success = encoder.TryEncode(new string('A', 50), out var matrix, out var error);
+        // Exceeds even version 40 (the largest QR version) at level H (the lowest-capacity level).
+        var success = encoder.TryEncode(new string('A', 2000), out var matrix, out var error);
 
         Assert.False(success);
         Assert.Null(matrix);
