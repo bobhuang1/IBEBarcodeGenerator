@@ -70,63 +70,23 @@ public sealed class Code128Encoder : IBarcodeEncoder
     private static bool TryEncodeAuto(string value, out int startSymbol, out int[] values, out string? error)
     {
         startSymbol = Code128Symbols.StartB;
-        values = Array.Empty<int>();
+        var result = new List<int>();
+        Code128Set? currentSet = null;
 
-        if (!Code128AutoSegmenter.TrySegment(value, out var segments, out error))
+        if (!Code128SymbolStreamBuilder.TryAppend(value, ref currentSet, result, out var firstSegmentSet, out error))
         {
+            values = Array.Empty<int>();
             return false;
         }
 
-        startSymbol = segments[0].Set switch
+        startSymbol = firstSegmentSet switch
         {
             Code128Set.A => Code128Symbols.StartA,
             Code128Set.C => Code128Symbols.StartC,
             _ => Code128Symbols.StartB,
         };
 
-        var result = new List<int>();
-        Code128Set? previousSet = null;
-
-        foreach (var segment in segments)
-        {
-            if (previousSet is not null && previousSet != segment.Set)
-            {
-                var switchSymbol = segment.Set switch
-                {
-                    Code128Set.A => Code128Symbols.CodeA,
-                    Code128Set.C => Code128Symbols.CodeC,
-                    _ => Code128Symbols.CodeB,
-                };
-                result.Add(switchSymbol);
-            }
-
-            bool segmentSuccess;
-            int[] segmentValues;
-
-            switch (segment.Set)
-            {
-                case Code128Set.A:
-                    segmentSuccess = Code128Symbols.TryEncodeSetA(segment.Text, out segmentValues, out error);
-                    break;
-                case Code128Set.C:
-                    segmentSuccess = Code128Symbols.TryEncodeSetC(segment.Text, out segmentValues, out error);
-                    break;
-                default:
-                    segmentSuccess = Code128Symbols.TryEncodeSetB(segment.Text, out segmentValues, out error);
-                    break;
-            }
-
-            if (!segmentSuccess)
-            {
-                return false;
-            }
-
-            result.AddRange(segmentValues);
-            previousSet = segment.Set;
-        }
-
         values = result.ToArray();
-        error = null;
         return true;
     }
 }
