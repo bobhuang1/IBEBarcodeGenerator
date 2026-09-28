@@ -21,4 +21,5 @@ public enum BarcodeSymbology
     Upc5DigitSupplement,
     DataMatrix,
     Pdf417,
+    Aztec,
 }
