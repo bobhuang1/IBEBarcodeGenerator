@@ -4,6 +4,13 @@ namespace IBEBarcode.Core.Encoders;
 
 public sealed class DataMatrixEncoder : IMatrixBarcodeEncoder
 {
+    private readonly bool _preferRectangular;
+
+    public DataMatrixEncoder(bool preferRectangular = false)
+    {
+        _preferRectangular = preferRectangular;
+    }
+
     public BarcodeSymbology Symbology => BarcodeSymbology.DataMatrix;
 
     public bool TryEncode(string value, out BarcodeMatrix? matrix, out string? error)
@@ -30,13 +37,21 @@ public sealed class DataMatrixEncoder : IMatrixBarcodeEncoder
         }
 
         DataMatrixSymbols.SymbolSize? size = null;
+        var smallestFittingCapacity = int.MaxValue;
 
         foreach (var candidate in DataMatrixSymbols.Sizes)
         {
-            if (bytes.Length <= candidate.DataCapacity)
+            if (bytes.Length > candidate.DataCapacity || candidate.DataCapacity > smallestFittingCapacity)
+            {
+                continue;
+            }
+
+            var candidateIsRectangular = candidate.InteriorWidth != candidate.InteriorHeight;
+
+            if (candidate.DataCapacity < smallestFittingCapacity || candidateIsRectangular == _preferRectangular)
             {
                 size = candidate;
-                break;
+                smallestFittingCapacity = candidate.DataCapacity;
             }
         }
 
@@ -68,29 +83,30 @@ public sealed class DataMatrixEncoder : IMatrixBarcodeEncoder
         Array.Copy(dataCodewords, allCodewords, size.DataCapacity);
         Array.Copy(eccCodewords, 0, allCodewords, size.DataCapacity, size.ErrorCodewords);
 
-        var placement = new DataMatrixPlacement(allCodewords, size.InteriorSize, size.InteriorSize);
+        var placement = new DataMatrixPlacement(allCodewords, size.InteriorWidth, size.InteriorHeight);
         placement.Place();
 
-        var totalSize = size.InteriorSize + 2;
-        var modules = new bool[totalSize, totalSize];
+        var totalWidth = size.InteriorWidth + 2;
+        var totalHeight = size.InteriorHeight + 2;
+        var modules = new bool[totalWidth, totalHeight];
 
-        for (var col = 0; col < totalSize; col++)
+        for (var col = 0; col < totalWidth; col++)
         {
             modules[col, 0] = col % 2 == 0;
-            modules[col, totalSize - 1] = true;
+            modules[col, totalHeight - 1] = true;
         }
 
-        for (var y = 0; y < size.InteriorSize; y++)
+        for (var y = 0; y < size.InteriorHeight; y++)
         {
             var outputRow = y + 1;
             modules[0, outputRow] = true;
 
-            for (var x = 0; x < size.InteriorSize; x++)
+            for (var x = 0; x < size.InteriorWidth; x++)
             {
                 modules[x + 1, outputRow] = placement.GetBit(x, y);
             }
 
-            modules[size.InteriorSize + 1, outputRow] = y % 2 == 0;
+            modules[size.InteriorWidth + 1, outputRow] = y % 2 == 0;
         }
 
         matrix = BarcodeMatrix.Create(value, modules);

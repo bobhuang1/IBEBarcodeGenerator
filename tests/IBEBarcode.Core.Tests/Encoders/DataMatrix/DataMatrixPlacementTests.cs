@@ -17,7 +17,7 @@ public class DataMatrixPlacementTests
                 codewords[i] = (byte)(i + 1);
             }
 
-            var placement = new DataMatrixPlacement(codewords, size.InteriorSize, size.InteriorSize);
+            var placement = new DataMatrixPlacement(codewords, size.InteriorWidth, size.InteriorHeight);
 
             placement.Place();
         }

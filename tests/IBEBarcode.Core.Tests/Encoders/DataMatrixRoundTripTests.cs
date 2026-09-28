@@ -13,6 +13,7 @@ public class DataMatrixRoundTripTests
     [InlineData("ABCDEFGHIJKL")] // forces interior 14 (dataCapacity 12)
     [InlineData("1234567890123456789012")] // forces interior 18 (dataCapacity 22)
     [InlineData("123456789012345678901234567890123456")] // forces interior 22 (dataCapacity 36)
+    [InlineData("AAAAAAAAAAAAAAA")] // 15 bytes: forces rectangular interior 24x10 (dataCapacity 16)
     public void EncodeThenDecode_RoundTripsExactly(string original)
     {
         var encoder = new DataMatrixEncoder();
@@ -25,50 +26,66 @@ public class DataMatrixRoundTripTests
         Assert.Equal(original, decoded);
     }
 
+    [Fact]
+    public void EncodeThenDecode_PreferRectangularTiedCapacity_RoundTripsExactly()
+    {
+        var encoder = new DataMatrixEncoder(preferRectangular: true);
+        var success = encoder.TryEncode("ABCD", out var matrix, out var error);
+
+        Assert.True(success, error);
+        Assert.NotEqual(matrix!.Width, matrix.Height);
+
+        var decoded = Decode(matrix);
+
+        Assert.Equal("ABCD", decoded);
+    }
+
     private static string Decode(BarcodeMatrix matrix)
     {
-        var totalSize = matrix.Width;
-        var interiorSize = totalSize - 2;
+        var numCols = matrix.Width - 2;
+        var numRows = matrix.Height - 2;
 
-        var dataCapacity = interiorSize switch
+        var dataCapacity = (numCols, numRows) switch
         {
-            8 => 3,
-            10 => 5,
-            12 => 8,
-            14 => 12,
-            16 => 18,
-            18 => 22,
-            20 => 30,
-            22 => 36,
-            24 => 44,
+            (8, 8) => 3,
+            (10, 10) => 5,
+            (16, 6) => 5,
+            (12, 12) => 8,
+            (14, 14) => 12,
+            (24, 10) => 16,
+            (16, 16) => 18,
+            (18, 18) => 22,
+            (20, 20) => 30,
+            (22, 22) => 36,
+            (24, 24) => 44,
             _ => throw new ArgumentOutOfRangeException(nameof(matrix)),
         };
 
-        var interior = new bool[interiorSize, interiorSize];
+        var interior = new bool[numCols, numRows];
 
-        for (var y = 0; y < interiorSize; y++)
+        for (var y = 0; y < numRows; y++)
         {
-            for (var x = 0; x < interiorSize; x++)
+            for (var x = 0; x < numCols; x++)
             {
                 interior[x, y] = matrix[x + 1, y + 1];
             }
         }
 
         var totalCodewordBits = new List<bool>();
-        var hasRead = new bool[interiorSize, interiorSize];
+        var hasRead = new bool[numCols, numRows];
 
         void ReadModule(int row, int col)
         {
             if (row < 0)
             {
-                row += interiorSize;
-                col += 4 - ((interiorSize + 4) % 8);
+                row += numRows;
+                col += 4 - ((numRows + 4) % 8);
             }
 
             if (col < 0)
             {
-                col += interiorSize;
-                row += 4 - ((interiorSize + 4) % 8);
+                col += numCols;
+                row += 4 - ((numCols + 4) % 8);
             }
 
             totalCodewordBits.Add(interior[col, row]);
@@ -89,50 +106,50 @@ public class DataMatrixRoundTripTests
 
         void ReadCorner1()
         {
-            ReadModule(interiorSize - 1, 0);
-            ReadModule(interiorSize - 1, 1);
-            ReadModule(interiorSize - 1, 2);
-            ReadModule(0, interiorSize - 2);
-            ReadModule(0, interiorSize - 1);
-            ReadModule(1, interiorSize - 1);
-            ReadModule(2, interiorSize - 1);
-            ReadModule(3, interiorSize - 1);
+            ReadModule(numRows - 1, 0);
+            ReadModule(numRows - 1, 1);
+            ReadModule(numRows - 1, 2);
+            ReadModule(0, numCols - 2);
+            ReadModule(0, numCols - 1);
+            ReadModule(1, numCols - 1);
+            ReadModule(2, numCols - 1);
+            ReadModule(3, numCols - 1);
         }
 
         void ReadCorner2()
         {
-            ReadModule(interiorSize - 3, 0);
-            ReadModule(interiorSize - 2, 0);
-            ReadModule(interiorSize - 1, 0);
-            ReadModule(0, interiorSize - 4);
-            ReadModule(0, interiorSize - 3);
-            ReadModule(0, interiorSize - 2);
-            ReadModule(0, interiorSize - 1);
-            ReadModule(1, interiorSize - 1);
+            ReadModule(numRows - 3, 0);
+            ReadModule(numRows - 2, 0);
+            ReadModule(numRows - 1, 0);
+            ReadModule(0, numCols - 4);
+            ReadModule(0, numCols - 3);
+            ReadModule(0, numCols - 2);
+            ReadModule(0, numCols - 1);
+            ReadModule(1, numCols - 1);
         }
 
         void ReadCorner3()
         {
-            ReadModule(interiorSize - 3, 0);
-            ReadModule(interiorSize - 2, 0);
-            ReadModule(interiorSize - 1, 0);
-            ReadModule(0, interiorSize - 2);
-            ReadModule(0, interiorSize - 1);
-            ReadModule(1, interiorSize - 1);
-            ReadModule(2, interiorSize - 1);
-            ReadModule(3, interiorSize - 1);
+            ReadModule(numRows - 3, 0);
+            ReadModule(numRows - 2, 0);
+            ReadModule(numRows - 1, 0);
+            ReadModule(0, numCols - 2);
+            ReadModule(0, numCols - 1);
+            ReadModule(1, numCols - 1);
+            ReadModule(2, numCols - 1);
+            ReadModule(3, numCols - 1);
         }
 
         void ReadCorner4()
         {
-            ReadModule(interiorSize - 1, 0);
-            ReadModule(interiorSize - 1, interiorSize - 1);
-            ReadModule(0, interiorSize - 3);
-            ReadModule(0, interiorSize - 2);
-            ReadModule(0, interiorSize - 1);
-            ReadModule(1, interiorSize - 3);
-            ReadModule(1, interiorSize - 2);
-            ReadModule(1, interiorSize - 1);
+            ReadModule(numRows - 1, 0);
+            ReadModule(numRows - 1, numCols - 1);
+            ReadModule(0, numCols - 3);
+            ReadModule(0, numCols - 2);
+            ReadModule(0, numCols - 1);
+            ReadModule(1, numCols - 3);
+            ReadModule(1, numCols - 2);
+            ReadModule(1, numCols - 1);
         }
 
         var row = 4;
@@ -140,54 +157,54 @@ public class DataMatrixRoundTripTests
 
         do
         {
-            if (row == interiorSize && col == 0)
+            if (row == numRows && col == 0)
             {
                 ReadCorner1();
             }
 
-            if (row == interiorSize - 2 && col == 0 && interiorSize % 4 != 0)
+            if (row == numRows - 2 && col == 0 && numCols % 4 != 0)
             {
                 ReadCorner2();
             }
 
-            if (row == interiorSize - 2 && col == 0 && interiorSize % 8 == 4)
+            if (row == numRows - 2 && col == 0 && numCols % 8 == 4)
             {
                 ReadCorner3();
             }
 
-            if (row == interiorSize + 4 && col == 2 && interiorSize % 8 == 0)
+            if (row == numRows + 4 && col == 2 && numCols % 8 == 0)
             {
                 ReadCorner4();
             }
 
             do
             {
-                if (row < interiorSize && col >= 0 && !hasRead[col, row])
+                if (row < numRows && col >= 0 && !hasRead[col, row])
                 {
                     ReadUtah(row, col);
                 }
 
                 row -= 2;
                 col += 2;
-            } while (row >= 0 && col < interiorSize);
+            } while (row >= 0 && col < numCols);
 
             row++;
             col += 3;
 
             do
             {
-                if (row >= 0 && col < interiorSize && !hasRead[col, row])
+                if (row >= 0 && col < numCols && !hasRead[col, row])
                 {
                     ReadUtah(row, col);
                 }
 
                 row += 2;
                 col -= 2;
-            } while (row < interiorSize && col >= 0);
+            } while (row < numRows && col >= 0);
 
             row += 3;
             col++;
-        } while (row < interiorSize || col < interiorSize);
+        } while (row < numRows || col < numCols);
 
         var dataBytes = new byte[dataCapacity];
 

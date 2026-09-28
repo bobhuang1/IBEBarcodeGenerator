@@ -90,4 +90,45 @@ public class DataMatrixEncoderTests
         Assert.Null(matrix);
         Assert.NotNull(error);
     }
+
+    [Fact]
+    public void TryEncode_DefaultPrefersSquareOverTiedCapacityRectangle()
+    {
+        // "ABCD" (4 bytes) fits both the square 10x10 (capacity 5) and rectangular 16x6
+        // (also capacity 5) sizes -- default behavior should prefer square, matching
+        // ZXing's own default (FORCE_NONE) tie-breaking.
+        var success = _encoder.TryEncode("ABCD", out var matrix, out var error);
+
+        Assert.True(success, error);
+        Assert.Equal(matrix!.Width, matrix.Height);
+        Assert.Equal(12, matrix.Width); // interior 10 + 2 border
+    }
+
+    [Fact]
+    public void TryEncode_PreferRectangular_SelectsTiedCapacityRectangleInstead()
+    {
+        var rectangularEncoder = new DataMatrixEncoder(preferRectangular: true);
+
+        var success = rectangularEncoder.TryEncode("ABCD", out var matrix, out var error);
+
+        Assert.True(success, error);
+        Assert.NotEqual(matrix!.Width, matrix.Height);
+        Assert.Equal(18, matrix.Width);  // interior 16 + 2 border
+        Assert.Equal(8, matrix.Height);  // interior 6 + 2 border
+    }
+
+    [Fact]
+    public void TryEncode_ValueRequiringOnlyRectangularCapacityTier_SelectsRectangleRegardlessOfPreference()
+    {
+        // 13-16 bytes only fits the rectangular 24x10 size (capacity 16) -- no square
+        // alternative exists at that exact capacity tier, so it's picked either way.
+        var value = new string('A', 15);
+
+        var success = _encoder.TryEncode(value, out var matrix, out var error);
+
+        Assert.True(success, error);
+        Assert.NotEqual(matrix!.Width, matrix.Height);
+        Assert.Equal(26, matrix.Width);  // interior 24 + 2 border
+        Assert.Equal(12, matrix.Height); // interior 10 + 2 border
+    }
 }

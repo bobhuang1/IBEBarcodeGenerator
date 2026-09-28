@@ -19,13 +19,24 @@ public class DataMatrixErrorCorrectionTests
     }
 
     [Fact]
-    public void Sizes_AreOrderedByAscendingCapacity()
+    public void Sizes_AreOrderedByNonDescendingCapacity()
     {
+        // Ties are allowed (a rectangular size can share a square size's dataCapacity,
+        // e.g. both the square 10x10 and rectangular 16x6 sizes have capacity 5), but the
+        // list must never go backwards, and DataMatrixEncoder relies on the square variant
+        // being listed first within a tie so it wins by default.
         var sizes = DataMatrixSymbols.Sizes;
 
         for (var i = 1; i < sizes.Count; i++)
         {
-            Assert.True(sizes[i].DataCapacity > sizes[i - 1].DataCapacity);
+            Assert.True(sizes[i].DataCapacity >= sizes[i - 1].DataCapacity);
+
+            if (sizes[i].DataCapacity == sizes[i - 1].DataCapacity)
+            {
+                var previousIsSquare = sizes[i - 1].InteriorWidth == sizes[i - 1].InteriorHeight;
+                var currentIsSquare = sizes[i].InteriorWidth == sizes[i].InteriorHeight;
+                Assert.True(previousIsSquare && !currentIsSquare);
+            }
         }
     }
 
