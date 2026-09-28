@@ -35,6 +35,9 @@ public sealed class Code128Encoder : IBarcodeEncoder
                 startSymbol = Code128Symbols.StartC;
                 success = Code128Symbols.TryEncodeSetC(value, out values, out error);
                 break;
+            case Code128Set.Auto:
+                success = TryEncodeAuto(value, out startSymbol, out values, out error);
+                break;
             default:
                 startSymbol = Code128Symbols.StartB;
                 success = Code128Symbols.TryEncodeSetB(value, out values, out error);
@@ -60,6 +63,69 @@ public sealed class Code128Encoder : IBarcodeEncoder
         Code128Symbols.AppendSymbol(segments, Code128Symbols.Stop);
 
         pattern = BarcodePattern.Create(value, segments, value);
+        error = null;
+        return true;
+    }
+
+    private static bool TryEncodeAuto(string value, out int startSymbol, out int[] values, out string? error)
+    {
+        startSymbol = Code128Symbols.StartB;
+        values = Array.Empty<int>();
+
+        if (!Code128AutoSegmenter.TrySegment(value, out var segments, out error))
+        {
+            return false;
+        }
+
+        startSymbol = segments[0].Set switch
+        {
+            Code128Set.A => Code128Symbols.StartA,
+            Code128Set.C => Code128Symbols.StartC,
+            _ => Code128Symbols.StartB,
+        };
+
+        var result = new List<int>();
+        Code128Set? previousSet = null;
+
+        foreach (var segment in segments)
+        {
+            if (previousSet is not null && previousSet != segment.Set)
+            {
+                var switchSymbol = segment.Set switch
+                {
+                    Code128Set.A => Code128Symbols.CodeA,
+                    Code128Set.C => Code128Symbols.CodeC,
+                    _ => Code128Symbols.CodeB,
+                };
+                result.Add(switchSymbol);
+            }
+
+            bool segmentSuccess;
+            int[] segmentValues;
+
+            switch (segment.Set)
+            {
+                case Code128Set.A:
+                    segmentSuccess = Code128Symbols.TryEncodeSetA(segment.Text, out segmentValues, out error);
+                    break;
+                case Code128Set.C:
+                    segmentSuccess = Code128Symbols.TryEncodeSetC(segment.Text, out segmentValues, out error);
+                    break;
+                default:
+                    segmentSuccess = Code128Symbols.TryEncodeSetB(segment.Text, out segmentValues, out error);
+                    break;
+            }
+
+            if (!segmentSuccess)
+            {
+                return false;
+            }
+
+            result.AddRange(segmentValues);
+            previousSet = segment.Set;
+        }
+
+        values = result.ToArray();
         error = null;
         return true;
     }

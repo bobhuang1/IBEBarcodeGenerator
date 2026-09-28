@@ -1,3 +1,4 @@
+using IBEBarcode.Core;
 using IBEBarcode.Core.Encoders;
 
 namespace IBEBarcode.Core.Tests.Encoders;
@@ -172,5 +173,82 @@ public class Code128EncoderTests
         var startB = patternB!.Segments.Take(6).ToArray();
 
         Assert.NotEqual(startB, startA);
+    }
+
+    [Fact]
+    public void TryEncode_Auto_ShortDigitRun_StaysInSetB()
+    {
+        var auto = new Code128Encoder(Code128Set.Auto);
+        var setB = new Code128Encoder(Code128Set.B);
+
+        auto.TryEncode("AB12CD", out var patternAuto, out var error);
+        setB.TryEncode("AB12CD", out var patternB, out _);
+
+        Assert.True(patternAuto is not null, error);
+        Assert.Equal(patternB!.Segments, patternAuto!.Segments);
+    }
+
+    [Fact]
+    public void TryEncode_Auto_LongDigitRun_ProducesFewerSymbolsThanSetB()
+    {
+        var auto = new Code128Encoder(Code128Set.Auto);
+        var setB = new Code128Encoder(Code128Set.B);
+
+        auto.TryEncode("AB12345678CD", out var patternAuto, out var error);
+        setB.TryEncode("AB12345678CD", out var patternB, out _);
+
+        Assert.True(patternAuto is not null, error);
+        Assert.True(patternAuto!.Segments.Count < patternB!.Segments.Count);
+    }
+
+    [Fact]
+    public void TryEncode_Auto_MixedRunsRoundTripsThroughIndependentChecksum()
+    {
+        var auto = new Code128Encoder(Code128Set.Auto);
+
+        var success = auto.TryEncode("AB123456CD", out var pattern, out var error);
+
+        Assert.True(success, error);
+
+        // Independently rebuild the same value/switch sequence using the same
+        // low-level helpers Code128AutoSegmenter/Code128Encoder use internally, but
+        // driven directly here rather than through the encoder under test, as a
+        // cross-check that the checksum and segment assembly line up.
+        Code128Symbols.TryEncodeSetB("AB", out var ab, out _);
+        Code128Symbols.TryEncodeSetC("123456", out var digits, out _);
+        Code128Symbols.TryEncodeSetB("CD", out var cd, out _);
+
+        var values = new List<int> { Code128Symbols.StartB };
+        values.AddRange(ab);
+        values.Add(Code128Symbols.CodeC);
+        values.AddRange(digits);
+        values.Add(Code128Symbols.CodeB);
+        values.AddRange(cd);
+
+        var dataOnly = values.Skip(1).ToArray();
+        var checksum = Code128Symbols.ComputeChecksum(Code128Symbols.StartB, dataOnly);
+        values.Add(checksum);
+        values.Add(Code128Symbols.Stop);
+
+        var expectedSegments = new List<BarSegment>();
+
+        foreach (var v in values)
+        {
+            Code128Symbols.AppendSymbol(expectedSegments, v);
+        }
+
+        Assert.Equal(expectedSegments, pattern!.Segments);
+    }
+
+    [Fact]
+    public void TryEncode_Auto_UnsupportedCharacterCombination_ReturnsError()
+    {
+        var auto = new Code128Encoder(Code128Set.Auto);
+
+        var success = auto.TryEncode("a\u0001b", out var pattern, out var error);
+
+        Assert.False(success);
+        Assert.Null(pattern);
+        Assert.NotNull(error);
     }
 }

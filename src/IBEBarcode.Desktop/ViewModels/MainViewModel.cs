@@ -154,7 +154,7 @@ public partial class MainViewModel : ViewModelBase
                     SupportedSymbology.MsiPlessey => new MsiPlesseyEncoder(),
                     SupportedSymbology.Code93 => new Code93Encoder(),
                     SupportedSymbology.Code39Extended => new ExtendedCode39Encoder(),
-                    SupportedSymbology.Code128 => new Code128Encoder(),
+                    SupportedSymbology.Code128 => new Code128Encoder(Code128Set.Auto),
                     SupportedSymbology.Ean13 => new Ean13Encoder(),
                     SupportedSymbology.Ean8 => new Ean8Encoder(),
                     SupportedSymbology.UpcA => new UpcAEncoder(),
