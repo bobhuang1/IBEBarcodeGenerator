@@ -37,9 +37,20 @@ public class AztecEncoderTests
     }
 
     [Fact]
-    public void TryEncode_ValueTooLargeForCompactRange_ReturnsError()
+    public void TryEncode_ValueExceedingCompactRange_SelectsFullSizeLayer()
     {
+        // 200 bytes exceeds every compact layer's ~40-60 byte practical capacity, so this
+        // must fall through to a full-size (non-compact) layer instead of erroring.
         var success = _encoder.TryEncode(new string('A', 200), out var matrix, out var error);
+
+        Assert.True(success, error);
+        Assert.DoesNotContain(matrix!.Width, new[] { 15, 19, 23, 27 });
+    }
+
+    [Fact]
+    public void TryEncode_ValueExceedingEveryLayer_ReturnsError()
+    {
+        var success = _encoder.TryEncode(new string('A', 5000), out var matrix, out var error);
 
         Assert.False(success);
         Assert.Null(matrix);
