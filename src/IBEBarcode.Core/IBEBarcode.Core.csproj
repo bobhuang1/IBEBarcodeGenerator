@@ -11,4 +11,7 @@
     <InternalsVisibleTo Include="IBEBarcode.Core.Tests" />
   </ItemGroup>
 
+  <!-- System.Text.Encoding.CodePages (Shift-JIS support for QR Kanji mode) ships as
+       part of the .NET 10 shared framework, so no explicit PackageReference is needed. -->
+
 </Project>

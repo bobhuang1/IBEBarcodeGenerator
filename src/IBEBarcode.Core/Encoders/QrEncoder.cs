@@ -29,6 +29,7 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
     private const int ModeNumeric = 0b0001;
     private const int ModeAlphanumeric = 0b0010;
     private const int ModeByte = 0b0100;
+    private const int ModeKanji = 0b1000;
 
     public bool TryEncode(string value, out BarcodeMatrix? matrix, out string? error)
     {
@@ -138,7 +139,23 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
             return ModeNumeric;
         }
 
-        return allAlphanumeric ? ModeAlphanumeric : ModeByte;
+        if (allAlphanumeric)
+        {
+            return ModeAlphanumeric;
+        }
+
+        var allKanji = value.Length > 0;
+
+        foreach (var ch in value)
+        {
+            if (QrKanji.TryGetValue(ch) is null)
+            {
+                allKanji = false;
+                break;
+            }
+        }
+
+        return allKanji ? ModeKanji : ModeByte;
     }
 
     private static int CountBitsFor(int mode, int version)
@@ -149,6 +166,7 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
         {
             ModeNumeric => new[] { 10, 12, 14 }[range],
             ModeAlphanumeric => new[] { 9, 11, 13 }[range],
+            ModeKanji => new[] { 8, 10, 12 }[range],
             _ => new[] { 8, 16, 16 }[range],
         };
     }
@@ -157,6 +175,7 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
     {
         ModeNumeric => (10 * (unitCount / 3)) + ((unitCount % 3) switch { 0 => 0, 1 => 4, _ => 7 }),
         ModeAlphanumeric => (11 * (unitCount / 2)) + (unitCount % 2 == 1 ? 6 : 0),
+        ModeKanji => unitCount * 13,
         _ => unitCount * 8,
     };
 
@@ -206,6 +225,9 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
                 break;
             case ModeAlphanumeric:
                 AppendAlphanumeric(value, writer);
+                break;
+            case ModeKanji:
+                AppendKanji(value, writer);
                 break;
             default:
                 foreach (var b in dataBytes)
@@ -333,6 +355,15 @@ public sealed class QrEncoder : IMatrixBarcodeEncoder
                 writer.AppendBits(code1, 6);
                 i += 1;
             }
+        }
+    }
+
+    private static void AppendKanji(string value, QrBitWriter writer)
+    {
+        foreach (var ch in value)
+        {
+            // DetectMode already validated every character maps to a Kanji value.
+            writer.AppendBits(QrKanji.TryGetValue(ch)!.Value, 13);
         }
     }
 

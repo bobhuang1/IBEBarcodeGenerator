@@ -57,6 +57,22 @@ public class QrRoundTripTests
         Assert.Equal(value, decoded);
     }
 
+    [Theory]
+    [InlineData("亜")]
+    [InlineData("亜字")]
+    [InlineData("亜字亜字亜")]
+    public void EncodeThenDecode_KanjiMode_RoundTripsExactly(string value)
+    {
+        var encoder = new QrEncoder('M');
+        var success = encoder.TryEncode(value, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = Decode(matrix!);
+
+        Assert.Equal(value, decoded);
+    }
+
     [Fact]
     public void EncodeThenDecode_HigherVersionMultiBlock_RoundTripsExactly()
     {
@@ -258,6 +274,7 @@ public class QrRoundTripTests
             0b0001 => new[] { 10, 12, 14 }[range],
             0b0010 => new[] { 9, 11, 13 }[range],
             0b0100 => new[] { 8, 16, 16 }[range],
+            0b1000 => new[] { 8, 10, 12 }[range],
             _ => throw new ArgumentOutOfRangeException(nameof(mode), $"Unexpected mode {mode}"),
         };
 
@@ -329,6 +346,19 @@ public class QrRoundTripTests
                     chars[written] = alphabet[v];
                     written += 1;
                 }
+            }
+
+            return new string(chars);
+        }
+
+        if (mode == 0b1000)
+        {
+            var chars = new char[count];
+
+            for (var i = 0; i < count; i++)
+            {
+                var v = ReadBits(codewordBits, pos + (i * 13), 13);
+                chars[i] = QrKanji.FromValue(v);
             }
 
             return new string(chars);
