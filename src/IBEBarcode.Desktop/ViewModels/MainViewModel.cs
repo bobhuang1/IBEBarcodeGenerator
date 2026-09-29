@@ -293,6 +293,13 @@ public partial class MainViewModel : ViewModelBase
         {
             byte[] rawPngBytes;
 
+            // BarcodeRenderer draws its value text at textStripHeight * 0.7 (see
+            // BarcodeRenderer.Render), while LabelComposer draws User Field 1/2 at
+            // exactly FontSize. Deriving TextHeightPixels from the same fontPixelSize
+            // keeps the barcode's own value text and the user-field captions visually
+            // the same size instead of drifting independently.
+            var fontPixelSize = Math.Max(16, FontSize * 3);
+
             if (SelectedSymbology is SupportedSymbology.QrCode or SupportedSymbology.DataMatrix or SupportedSymbology.Pdf417 or SupportedSymbology.Aztec)
             {
                 IMatrixBarcodeEncoder matrixEncoder = SelectedSymbology switch
@@ -354,7 +361,7 @@ public partial class MainViewModel : ViewModelBase
                     QuietZoneModules = 10,
                     BarHeightPixels = 160,
                     ShowHumanReadableText = ShowBarcodeValue,
-                    TextHeightPixels = Math.Max(32, FontSize * 4),
+                    TextHeightPixels = (int)(fontPixelSize / 0.7),
                     FontFamily = FontFamily,
                     FontBold = FontBold,
                     FontItalic = FontItalic,
@@ -367,7 +374,7 @@ public partial class MainViewModel : ViewModelBase
                 PrefixText = UserField1,
                 SuffixText = userField2Value,
                 FontFamily = FontFamily,
-                FontSize = FontSize,
+                FontSize = fontPixelSize,
                 FontBold = FontBold,
                 FontItalic = FontItalic,
                 FontUnderline = FontUnderline,
