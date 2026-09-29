@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -49,5 +50,11 @@ public partial class MainWindow : Window
 
         await using var stream = await file.OpenWriteAsync();
         await stream.WriteAsync(pdfBytes.AsMemory(0, pdfBytes.Length));
+    }
+
+    private void OnHelpClick(object? sender, RoutedEventArgs e)
+    {
+        var helpFilePath = Path.Combine(AppContext.BaseDirectory, "Assets", "help.html");
+        Process.Start(new ProcessStartInfo(helpFilePath) { UseShellExecute = true });
     }
 }

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IBE Barcode Generator — Help</title>
+<style>
+  :root {
+    --ink: #1c1c1c;
+    --muted: #5a5a5a;
+    --accent: #1e5aa8;
+    --border: #d8d8d8;
+    --panel: #f4f4f2;
+    --code-bg: #eef1f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    color: var(--ink);
+    background: #ffffff;
+    margin: 0;
+    line-height: 1.55;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  nav.toc {
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+  nav.toc h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 10px; }
+  nav.toc ul { list-style: none; padding: 0; margin: 0; }
+  nav.toc li { margin: 4px 0; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 14px; }
+  nav.toc a:hover { text-decoration: underline; }
+  main { padding: 32px 40px 80px; }
+  header.title { border-bottom: 3px solid var(--accent); padding-bottom: 16px; margin-bottom: 24px; }
+  header.title img { height: 36px; vertical-align: middle; margin-right: 10px; }
+  header.title h1 { display: inline; font-size: 26px; vertical-align: middle; }
+  header.title p { color: var(--muted); margin: 8px 0 0; }
+  section { margin: 36px 0; }
+  section h2 { font-size: 20px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  section h3 { font-size: 16px; color: var(--accent); margin-top: 24px; }
+  code, .kbd { background: var(--code-bg); border-radius: 4px; padding: 1px 6px; font-family: Consolas, monospace; font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; font-size: 14px; vertical-align: top; }
+  th { background: var(--panel); }
+  .callout {
+    background: #fff8e6;
+    border: 1px solid #e8d28a;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 14px;
+    margin: 14px 0;
+  }
+  .callout.note { background: #eaf2ff; border-color: #b7d0f5; }
+
+  /* Original schematic diagrams (not real screenshots) illustrating window layout */
+  .mock {
+    border: 2px solid #8a8a8a;
+    border-radius: 6px;
+    background: #efeee9;
+    margin: 16px 0;
+    font-size: 12px;
+    color: #333;
+  }
+  .mock .row {
+    border-bottom: 1px dashed #b7b3a8;
+    padding: 6px 10px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .mock .row:last-child { border-bottom: none; }
+  .mock .chip {
+    border: 1px solid #9a9689;
+    background: #ffffff;
+    border-radius: 4px;
+    padding: 3px 8px;
+  }
+  .mock .preview {
+    height: 90px;
+    margin: 10px;
+    background: #ffffff;
+    border: 1px solid #9a9689;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+    font-style: italic;
+  }
+  .mock figcaption, figure figcaption {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 4px;
+  }
+  footer { color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); margin-top: 60px; padding-top: 16px; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc">
+    <h2>Contents</h2>
+    <ul>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#quickstart">Quick start</a></li>
+      <li><a href="#window">Window layout</a></li>
+      <li><a href="#symbology">Choosing a symbology</a></li>
+      <li><a href="#font">Font controls</a></li>
+      <li><a href="#value">Barcode value, increment &amp; quantity</a></li>
+      <li><a href="#userfields">User Field 1 &amp; 2</a></li>
+      <li><a href="#paper">Paper template</a></li>
+      <li><a href="#rotatezoom">Rotate &amp; zoom</a></li>
+      <li><a href="#export">Exporting a label sheet PDF</a></li>
+      <li><a href="#statusbar">Status bar</a></li>
+      <li><a href="#formats">Supported barcode formats</a></li>
+      <li><a href="#webvsdesktop">Web vs. Desktop</a></li>
+      <li><a href="#troubleshooting">Troubleshooting</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <header class="title">
+      <img src="icon-192.png" alt="" onerror="this.style.display='none'" />
+      <h1>IBE Barcode Generator — Help</h1>
+      <p>A free, open-source barcode label generator. This page covers every feature in the current Desktop and Web applications.</p>
+    </header>
+
+    <div class="callout note">
+      The diagrams on this page are simple original schematics of the window layout, not photographic screenshots — the boxes and labels describe where each control lives, not its exact pixel appearance.
+    </div>
+
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>
+        IBE Barcode Generator creates barcode label images from a value you type in, previews them live, and
+        can export a full sheet of labels — including a sequentially-numbered batch of up to 1000 — as a
+        ready-to-print PDF. It supports twenty barcode formats, from simple 1-D formats like Code 39 through
+        2-D formats like QR Code and Data Matrix.
+      </p>
+    </section>
+
+    <section id="quickstart">
+      <h2>Quick start</h2>
+      <ol>
+        <li>Pick a barcode format from the <strong>Symbology</strong> dropdown.</li>
+        <li>Type the value you want encoded into the <strong>Barcode Value</strong> box. The preview updates as you type.</li>
+        <li>Optionally fill in <strong>User Field 1</strong> (a caption above the barcode) and <strong>User Field 2</strong> (a caption below it).</li>
+        <li>Pick a <strong>Current Paper Type</strong> matching the label sheets you'll print on.</li>
+        <li>Use <strong>Save Label Sheet PDF...</strong> to export a print-ready PDF.</li>
+      </ol>
+    </section>
+
+    <section id="window">
+      <h2>Window layout</h2>
+      <figure>
+        <div class="mock">
+          <div class="row"><span class="chip">File</span><span class="chip">Symbology</span><span class="chip">Tools</span><span class="chip">Help</span></div>
+          <div class="row"><span class="chip">Symbology ▾</span><span class="chip">↺ Rotate Left</span><span class="chip">Rotate Right ↻</span><span class="chip">Zoom In (+)</span><span class="chip">Zoom Out (−)</span><span class="chip">Save Label Sheet PDF…</span></div>
+          <div class="row"><span class="chip">Font ▾</span><span class="chip">Size</span><span class="chip"><b>B</b></span><span class="chip"><i>I</i></span><span class="chip"><u>U</u></span></div>
+          <div class="row"><span class="chip">☑ Barcode Value</span><span class="chip">[ value ]</span><span class="chip">Barcode Increment</span><span class="chip">Quantity</span></div>
+          <div class="row"><span class="chip">User Field 1</span><span class="chip">User Field 2</span><span class="chip">User Field 2 Increment</span></div>
+          <div class="row"><span class="chip">Current Paper Type ▾</span></div>
+          <div class="preview">barcode preview area (zoomable)</div>
+          <div class="row"><span class="chip">zoom%</span><span class="chip">label size</span><span class="chip">symbology</span><span class="chip">date</span></div>
+        </div>
+        <figcaption>Fig. 1 — Row-by-row layout of the main window, top to bottom.</figcaption>
+      </figure>
+      <p>The window's height auto-fits its content, so a taller barcode or a higher zoom level never gets clipped at the bottom.</p>
+    </section>
+
+    <section id="symbology">
+      <h2>Choosing a symbology</h2>
+      <p>
+        The <strong>Symbology</strong> dropdown (top toolbar row) selects which barcode format the value is
+        encoded with. Switching formats re-encodes the current value immediately. If the current value isn't
+        valid for the newly-selected format (for example, letters in a numeric-only format like EAN-13), an
+        error message appears above the preview explaining what's wrong.
+      </p>
+    </section>
+
+    <section id="font">
+      <h2>Font controls</h2>
+      <p>
+        The font row controls the typeface, size, and style used for <em>all</em> text on the label: the
+        barcode's own human-readable value text, and both User Field captions. They always render at a
+        matching size so the label looks consistent.
+      </p>
+      <table>
+        <tr><th>Control</th><th>Effect</th></tr>
+        <tr><td>Font family</td><td>Arial, Times New Roman, Courier New, Verdana, or Consolas.</td></tr>
+        <tr><td>Size</td><td>Point size for all label text (6–72).</td></tr>
+        <tr><td><b>B</b> / <i>I</i> / <u>U</u></td><td>Bold, italic, and underline toggles, applied uniformly.</td></tr>
+      </table>
+    </section>
+
+    <section id="value">
+      <h2>Barcode value, increment &amp; quantity</h2>
+      <h3>Barcode Value</h3>
+      <p>The text box next to the <strong>Barcode Value</strong> checkbox is the value that gets encoded. Unchecking the box hides the human-readable text printed under the bars — the bars themselves are unaffected.</p>
+      <h3>Barcode Increment &amp; Quantity</h3>
+      <p>
+        These two controls generate a batch of sequential labels for <strong>Save Label Sheet PDF</strong>:
+        <strong>Quantity</strong> sets how many labels to generate (1–1000), and <strong>Barcode Increment</strong>
+        sets how much the value's trailing run of digits increases between copies. For example, with value
+        <code>34738</code> and increment <code>1</code>, a quantity of 3 produces <code>34738</code>,
+        <code>34739</code>, <code>34740</code> on successive labels. If the value has no trailing digits, the
+        increment has nothing to act on and every copy stays identical.
+      </p>
+      <div class="callout">Increment and Quantity only affect the exported PDF, not the live on-screen preview (which always shows the first label in the batch).</div>
+    </section>
+
+    <section id="userfields">
+      <h2>User Field 1 &amp; 2</h2>
+      <p>
+        Two optional captions printed as part of the label image, independent of the barcode's own value text:
+      </p>
+      <table>
+        <tr><th>Field</th><th>Position</th><th>Increment</th></tr>
+        <tr><td>User Field 1</td><td>Above the barcode</td><td>No — always printed as typed.</td></tr>
+        <tr><td>User Field 2</td><td>Below the barcode's value text</td><td>Yes, via <strong>User Field 2 Increment</strong>, using the same trailing-digit rule as Barcode Increment.</td></tr>
+      </table>
+    </section>
+
+    <section id="paper">
+      <h2>Paper template</h2>
+      <p>
+        <strong>Current Paper Type</strong> selects which physical label sheet layout to print onto — this
+        determines label size, how many labels fit per sheet, and their position on the page. It includes several
+        Avery layouts (5160, 5161, 5162, 5163, 5164, 5167 at the time of writing); each was verified to exactly
+        fit a US Letter page before being added.
+      </p>
+    </section>
+
+    <section id="rotatezoom">
+      <h2>Rotate &amp; zoom</h2>
+      <p><strong>Rotate Left / Rotate Right</strong> spin the label image in 90° steps (0°, 90°, 180°, 270°) — available from the toolbar and the <strong>Tools</strong> menu.</p>
+      <p><strong>Zoom In / Zoom Out</strong> change how large the preview appears on screen in 25% steps; this is purely a display setting and never affects the exported PDF's physical size.</p>
+    </section>
+
+    <section id="export">
+      <h2>Exporting a label sheet PDF</h2>
+      <p>
+        <strong>Save Label Sheet PDF...</strong> (File menu or toolbar) renders the current label — or, if
+        Quantity is greater than 1, the whole sequential batch — onto the selected paper template and writes a
+        PDF you're prompted to save. A batch larger than one sheet's worth of labels automatically continues
+        onto additional pages, so a 1000-label run on a 30-label sheet produces 34 pages.
+      </p>
+    </section>
+
+    <section id="statusbar">
+      <h2>Status bar</h2>
+      <p>The bar along the bottom of the window shows, left to right: the current zoom percentage, the selected paper template's label size, the current symbology name, and today's date.</p>
+    </section>
+
+    <section id="formats">
+      <h2>Supported barcode formats</h2>
+      <table>
+        <tr><th>Format</th><th>What it's typically used for</th></tr>
+        <tr><td>Code 39</td><td>General-purpose alphanumeric barcode; widely supported by low-cost scanners.</td></tr>
+        <tr><td>Extended Code 39</td><td>Code 39 variant that adds lowercase letters and punctuation via character pairs.</td></tr>
+        <tr><td>Interleaved 2 of 5</td><td>Compact numeric-only barcode, common in warehousing and shipping.</td></tr>
+        <tr><td>Codabar</td><td>Numeric barcode with selectable start/stop characters; historically used in libraries and blood banks.</td></tr>
+        <tr><td>Code 93</td><td>Denser successor to Code 39 with built-in checksums.</td></tr>
+        <tr><td>Code 128 (auto subset)</td><td>High-density alphanumeric barcode covering the full ASCII range; automatically switches between its internal character subsets for compact encoding.</td></tr>
+        <tr><td>GS1-128</td><td>Code 128 carrying GS1 Application Identifier data (e.g. batch numbers, dates, quantities) in a standardized element-string notation.</td></tr>
+        <tr><td>EAN-13 / EAN-8</td><td>International retail product barcodes.</td></tr>
+        <tr><td>UPC-A / UPC-E</td><td>North American retail product barcodes; UPC-E is a zero-suppressed, more compact form of UPC-A.</td></tr>
+        <tr><td>UPC 2-digit / 5-digit supplement</td><td>Small add-on barcodes printed alongside UPC/EAN codes, typically for periodical issue numbers or suggested retail price.</td></tr>
+        <tr><td>ISBN</td><td>Book identifier barcode (an EAN-13 variant with the 978/979 Bookland prefix).</td></tr>
+        <tr><td>Postnet</td><td>USPS height-modulated barcode encoding a ZIP code.</td></tr>
+        <tr><td>QR Code</td><td>2-D matrix barcode; auto-selects the most compact internal mode (numeric, alphanumeric, byte, or Kanji) for the given value.</td></tr>
+        <tr><td>Data Matrix</td><td>Compact 2-D matrix barcode used widely in electronics and small-item marking.</td></tr>
+        <tr><td>PDF417</td><td>High-capacity stacked 2-D barcode, used on ID cards, boarding passes, and shipping labels.</td></tr>
+        <tr><td>Aztec Code</td><td>2-D matrix barcode that needs no surrounding quiet zone, used on transit and boarding tickets.</td></tr>
+      </table>
+    </section>
+
+    <section id="webvsdesktop">
+      <h2>Web vs. Desktop</h2>
+      <p>
+        The Web app mirrors the Desktop app's preview and PDF export features and runs entirely in your
+        browser — no data is sent to a server. The Desktop app additionally integrates with your operating
+        system's native file save dialog.
+      </p>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>Troubleshooting</h2>
+      <table>
+        <tr><th>Message</th><th>What it means</th></tr>
+        <tr><td>"Enter a value to encode."</td><td>The Barcode Value box is empty.</td></tr>
+        <tr><td>"Character '…' is outside the … range this encoder supports."</td><td>The value contains a character the selected format can't represent — try a different symbology, or remove the character.</td></tr>
+        <tr><td>"Value is too large to encode…"</td><td>The value is too long for the selected format's maximum capacity.</td></tr>
+        <tr><td>"Select a paper template before exporting…"</td><td>No paper type is selected in the <strong>Current Paper Type</strong> dropdown.</td></tr>
+      </table>
+    </section>
+
+    <footer>
+      IBE Barcode Generator is free, open-source software released under the MIT license.
+    </footer>
+  </main>
+</div>
+</body>
+</html>

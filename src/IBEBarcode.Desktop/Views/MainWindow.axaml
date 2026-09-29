@@ -29,7 +29,9 @@
                 <MenuItem Header="Rotate Left" Command="{Binding RotateLeftCommand}" />
                 <MenuItem Header="Rotate Right" Command="{Binding RotateRightCommand}" />
             </MenuItem>
-            <MenuItem Header="_Help" />
+            <MenuItem Header="_Help">
+                <MenuItem Header="IBE Barcode Generator Help" Click="OnHelpClick" />
+            </MenuItem>
         </Menu>
 
         <!-- Status bar -->

@@ -9,6 +9,8 @@
   <ItemGroup>
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
+    <!-- Shared with the Web app so there's one authoritative copy of the help content. -->
+    <Content Include="..\IBEBarcode.Web\wwwroot\help.html" Link="Assets\help.html" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
