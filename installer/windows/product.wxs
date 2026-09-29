@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MSI installer definition for IBE Barcode Generator, built by CI via:
+    wix build installer/windows/product.wxs -d PublishDir=<path> -d ProductVersion=<x.y.z> -arch <x64|x86> -out out.msi
+
+  UpgradeCode is fixed forever, it is how Windows Installer recognizes different
+  versions as the "same product" for upgrade/uninstall purposes. Never change it.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="IBE Barcode Generator"
+      Manufacturer="IBE Group, Inc."
+      Version="$(var.ProductVersion)"
+      UpgradeCode="6E4B5A2A-6F1D-4C6E-9B7A-6C6B8F9C1A2E">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of IBE Barcode Generator is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Resolved relative to the working directory `wix build` is invoked from (repo root). -->
+    <Icon Id="AppIcon.ico" SourceFile="src\IBEBarcode.Desktop\Assets\ibe-icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="IBE Barcode Generator">
+        <!-- Main executable is a separate, explicit component so a Start Menu shortcut
+             can point at it; everything else (Assets/, help.html, etc.) is harvested. -->
+        <Component Id="MainExecutable" Guid="9C3F2E1B-4A5D-4E6F-8B7C-1D2E3F4A5B6C">
+          <File Id="MainExe" Source="$(var.PublishDir)\IBEBarcode.Desktop.exe" KeyPath="yes">
+            <Shortcut
+                Id="StartMenuShortcut"
+                Directory="ProgramMenuFolder"
+                Name="IBE Barcode Generator"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico"
+                Advertise="yes" />
+          </File>
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Everything the app needs besides the main exe (help.html, icon, logo) lives
+         under Assets\, so harvesting just that subfolder avoids re-harvesting the exe
+         itself (which needs its own component above, for the Start Menu shortcut). -->
+    <ComponentGroup Id="HarvestedFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\Assets\**" />
+    </ComponentGroup>
+
+    <Feature Id="MainFeature" Title="IBE Barcode Generator" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentGroupRef Id="HarvestedFiles" />
+    </Feature>
+
+  </Package>
+</Wix>

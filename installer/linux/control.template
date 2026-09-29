@@ -1,0 +1,9 @@
+Package: ibe-barcode-generator
+Version: __VERSION__
+Section: graphics
+Priority: optional
+Architecture: amd64
+Maintainer: IBE Group, Inc.
+Description: Free, open-source barcode label generator
+ Generates barcode labels (Code 39, QR, Data Matrix, PDF417, Aztec, and more)
+ with live preview and print-ready PDF export.

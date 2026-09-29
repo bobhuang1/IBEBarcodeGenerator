@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=IBE Barcode Generator
+Exec=/opt/ibe-barcode-generator/IBEBarcode.Desktop
+Icon=/opt/ibe-barcode-generator/Assets/ibe-icon.ico
+Categories=Graphics;

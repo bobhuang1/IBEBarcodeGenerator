@@ -80,6 +80,17 @@ to Azure Static Web Apps on push to `master`. It needs an
 automatically when you connect this repo to a Static Web App resource in
 the Azure portal.
 
+`.github/workflows/desktop-release.yml` builds the Desktop app for five
+targets — Windows x64, Windows x86, Linux x64, macOS x64, and macOS
+ARM64 — as self-contained, single-file executables. Each target gets a
+portable archive (`.zip`/`.tar.gz`, just unzip and run) and an installer
+(Windows `.msi` via WiX, macOS `.dmg` containing a `.app` bundle, Linux
+`.deb`). It runs on every push to `master` (build-only, to catch
+breakage early) and, when the push is a `vX.Y.Z` tag, also publishes
+all ten artifacts to a GitHub Release. No secrets are required. The
+Windows MSI is built with WiX v5, pinned below WiX v7's paid Open
+Source Maintenance Fee requirement.
+
 ## License
 
 MIT — see `LICENSE`.
