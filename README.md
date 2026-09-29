@@ -22,12 +22,14 @@ preview and paper-template PDF label sheet export. See
   EAN-8, UPC-A, UPC-E, UPC 2-digit and 5-digit supplements, GS1-128
   (numeric, or the full official GS1 Application Identifier element-string
   notation), ISBN (Bookland), Postnet, QR Code (auto Numeric/
-  Alphanumeric/Byte mode selection, all 40 versions, multi-block
-  Reed-Solomon, mask-pattern scoring), Data Matrix (ASCII mode, all 9
-  square sizes plus 2 rectangular sizes, multi-region and multi-block
-  up to 1304 bytes), PDF417 (Byte Compaction by
-  default, plus optional Compact/Numeric Compaction/Text Compaction
-  modes), and Aztec Code (Binary Shift mode, all layers 1-32).
+  Alphanumeric/Byte/Kanji mode selection, all 40 versions, multi-block
+  Reed-Solomon, mask-pattern scoring), Data Matrix (ASCII mode by default,
+  plus optional C40/Text/X12/Base256 encodation modes, all 9 square sizes
+  plus 2 rectangular sizes, multi-region and multi-block up to 1304
+  bytes), PDF417 (Byte Compaction by default, plus optional Compact/
+  Numeric Compaction/Text Compaction modes), and Aztec Code (Binary Shift
+  mode by default, plus optional text compaction across Upper/Lower/
+  Digit/Mixed/Punct submodes, all layers 1-32).
 - `src/IBEBarcode.Rendering` — SkiaSharp renderers for all three pattern
   shapes: linear (`BarcodeRenderer`), 2D grid (`MatrixRenderer` for QR),
   and height-varying (`HeightBarRenderer` for Postnet).
