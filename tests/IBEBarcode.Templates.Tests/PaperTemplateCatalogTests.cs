@@ -58,6 +58,63 @@ public class PaperTemplateCatalogTests
     }
 
     [Fact]
+    public void Avery5162_ExactlyFillsUsLetterPage()
+    {
+        var t = PaperTemplateCatalog.Avery5162;
+
+        var totalWidth = t.LeftMarginMm + t.Columns * t.LabelWidthMm + (t.Columns - 1) * t.HorizontalGapMm + t.LeftMarginMm;
+        var totalHeight = t.TopMarginMm + t.Rows * t.LabelHeightMm + (t.Rows - 1) * t.VerticalGapMm + t.TopMarginMm;
+
+        Assert.Equal(t.PageWidthMm, totalWidth, precision: 3);
+        Assert.Equal(t.PageHeightMm, totalHeight, precision: 3);
+    }
+
+    [Fact]
+    public void Avery5164_ExactlyFillsUsLetterPage()
+    {
+        var t = PaperTemplateCatalog.Avery5164;
+
+        var totalWidth = t.LeftMarginMm + t.Columns * t.LabelWidthMm + (t.Columns - 1) * t.HorizontalGapMm + t.LeftMarginMm;
+        var totalHeight = t.TopMarginMm + t.Rows * t.LabelHeightMm + (t.Rows - 1) * t.VerticalGapMm + t.TopMarginMm;
+
+        Assert.Equal(t.PageWidthMm, totalWidth, precision: 3);
+        Assert.Equal(t.PageHeightMm, totalHeight, precision: 3);
+    }
+
+    [Fact]
+    public void Avery5167_ExactlyFillsUsLetterPage()
+    {
+        var t = PaperTemplateCatalog.Avery5167;
+
+        var totalWidth = t.LeftMarginMm + t.Columns * t.LabelWidthMm + (t.Columns - 1) * t.HorizontalGapMm + t.LeftMarginMm;
+        var totalHeight = t.TopMarginMm + t.Rows * t.LabelHeightMm + (t.Rows - 1) * t.VerticalGapMm + t.TopMarginMm;
+
+        Assert.Equal(t.PageWidthMm, totalWidth, precision: 3);
+        Assert.Equal(t.PageHeightMm, totalHeight, precision: 3);
+    }
+
+    [Fact]
+    public void Avery5164_HorizontalMarginAndGapMatchAvery5162()
+    {
+        // Both are 4"-wide, 2-column templates from the same sourced dataset; their
+        // horizontal layout should be identical.
+        Assert.Equal(PaperTemplateCatalog.Avery5162.LeftMarginMm, PaperTemplateCatalog.Avery5164.LeftMarginMm, precision: 4);
+        Assert.Equal(PaperTemplateCatalog.Avery5162.HorizontalGapMm, PaperTemplateCatalog.Avery5164.HorizontalGapMm, precision: 4);
+    }
+
+    [Fact]
+    public void Avery5164_TopMarginMatchesAvery5160AndAvery5161()
+    {
+        Assert.Equal(PaperTemplateCatalog.Avery5160.TopMarginMm, PaperTemplateCatalog.Avery5164.TopMarginMm, precision: 4);
+    }
+
+    [Fact]
+    public void Avery5167_TopMarginMatchesAvery5160Family()
+    {
+        Assert.Equal(PaperTemplateCatalog.Avery5160.TopMarginMm, PaperTemplateCatalog.Avery5167.TopMarginMm, precision: 4);
+    }
+
+    [Fact]
     public void Find_KnownVendorAndCode_ReturnsTemplate()
     {
         var found = PaperTemplateCatalog.Find("avery", "5160");
@@ -77,6 +134,9 @@ public class PaperTemplateCatalogTests
     {
         Assert.Contains(PaperTemplateCatalog.AllTemplates, t => t.Code == "5160");
         Assert.Contains(PaperTemplateCatalog.AllTemplates, t => t.Code == "5161");
+        Assert.Contains(PaperTemplateCatalog.AllTemplates, t => t.Code == "5162");
         Assert.Contains(PaperTemplateCatalog.AllTemplates, t => t.Code == "5163");
+        Assert.Contains(PaperTemplateCatalog.AllTemplates, t => t.Code == "5164");
+        Assert.Contains(PaperTemplateCatalog.AllTemplates, t => t.Code == "5167");
     }
 }
