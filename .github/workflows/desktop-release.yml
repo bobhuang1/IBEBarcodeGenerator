@@ -65,6 +65,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The macOS images carry several Xcode copies (~15+ GB each) that a pure .NET build
+      # never uses; without this the osx-x64 packaging step dies in hdiutil with
+      # "No space left on device".
+      - name: Free disk space (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -h / | tail -1
+          sudo rm -rf /Applications/Xcode*.app
+          sudo rm -rf /Users/runner/Library/Android/sdk
+          df -h / | tail -1
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
