@@ -71,7 +71,116 @@ public class AztecRoundTripTests
         _ => 12,
     };
 
-    private static string Decode(BarcodeMatrix matrix, int expectedByteCount)
+    [Theory]
+    [InlineData("HELLO WORLD")]
+    [InlineData("Hello, World! 123")]
+    [InlineData("lower UPPER 0123, mixed.punct!")]
+    public void EncodeThenDecode_TextCompaction_RoundTripsExactly(string original)
+    {
+        var encoder = new AztecEncoder(textCompaction: true);
+        var success = encoder.TryEncode(original, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = DecodeText(matrix!);
+
+        Assert.Equal(original, decoded);
+    }
+
+    // Independently reverses AztecTextCompaction's latch routes and character tables
+    // (re-derived here, not shared code) to decode the real (post-bit-stuffing-removal)
+    // bitstream back into text.
+    private static string DecodeText(BarcodeMatrix matrix)
+    {
+        var realBits = ExtractRealBits(matrix);
+        var pos = 0;
+
+        int ReadBits(int count)
+        {
+            var value = 0;
+
+            for (var i = 0; i < count; i++)
+            {
+                value = (value << 1) | (realBits[pos++] ? 1 : 0);
+            }
+
+            return value;
+        }
+
+        const int ModeUpper = 0;
+        const int ModeLower = 1;
+        const int ModeDigit = 2;
+        const int ModeMixed = 3;
+        const int ModePunct = 4;
+
+        var upperChars = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        var lowerChars = " abcdefghijklmnopqrstuvwxyz";
+        var digitChars = " 0123456789,.";
+        var mixedChars = "\0 \u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000B\f\r\u001B\u001C\u001D\u001E\u001F@\\^_`|~\u007F";
+        var punctChars = "\0\r\0\0\0\0!'#$%&'()*+,-./:;<=>?[]{}";
+
+        var mode = ModeUpper;
+        var result = new System.Text.StringBuilder();
+
+        while (pos + (mode == ModeDigit ? 4 : 5) <= realBits.Count)
+        {
+            var width = mode == ModeDigit ? 4 : 5;
+            var code = ReadBits(width);
+
+            switch (mode)
+            {
+                case ModeUpper when code == 28:
+                    mode = ModeLower;
+                    continue;
+                case ModeUpper when code == 29:
+                    mode = ModeMixed;
+                    continue;
+                case ModeUpper when code == 30:
+                    mode = ModeDigit;
+                    continue;
+                case ModeLower when code == 28:
+                    mode = ModeLower; // unreachable in this greedy encoder's output
+                    continue;
+                case ModeLower when code == 29:
+                    mode = ModeMixed;
+                    continue;
+                case ModeLower when code == 30:
+                    mode = ModeDigit;
+                    continue;
+                case ModeDigit when code == 14:
+                    mode = ModeUpper;
+                    continue;
+                case ModeMixed when code == 28:
+                    mode = ModeLower;
+                    continue;
+                case ModeMixed when code == 29:
+                    mode = ModeUpper;
+                    continue;
+                case ModeMixed when code == 30:
+                    mode = ModePunct;
+                    continue;
+                case ModePunct when code == 31:
+                    mode = ModeUpper;
+                    continue;
+            }
+
+            char ch = mode switch
+            {
+                ModeUpper => upperChars[code - 1],
+                ModeLower => lowerChars[code - 1],
+                ModeDigit => digitChars[code - 1],
+                ModeMixed => mixedChars[code],
+                ModePunct => punctChars[code],
+                _ => throw new InvalidOperationException(),
+            };
+
+            result.Append(ch);
+        }
+
+        return result.ToString();
+    }
+
+    private static List<bool> ExtractRealBits(BarcodeMatrix matrix)
     {
         var size = matrix.Width;
         var (compact, layers) = DetermineLayers(size);
@@ -219,6 +328,12 @@ public class AztecRoundTripTests
             idx += wordSize;
         }
 
+        return realBits;
+    }
+
+    private static string Decode(BarcodeMatrix matrix, int expectedByteCount)
+    {
+        var realBits = ExtractRealBits(matrix);
         var pos = 0;
 
         int ReadBits(int count)

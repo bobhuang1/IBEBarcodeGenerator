@@ -14,6 +14,13 @@ public sealed class AztecEncoder : IMatrixBarcodeEncoder
         12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
     };
 
+    private readonly bool _textCompaction;
+
+    public AztecEncoder(bool textCompaction = false)
+    {
+        _textCompaction = textCompaction;
+    }
+
     public BarcodeSymbology Symbology => BarcodeSymbology.Aztec;
 
     public bool TryEncode(string value, out BarcodeMatrix? matrix, out string? error)
@@ -26,20 +33,33 @@ public sealed class AztecEncoder : IMatrixBarcodeEncoder
             return false;
         }
 
-        var bytes = new byte[value.Length];
+        AztecBitBuffer bits;
 
-        for (var i = 0; i < value.Length; i++)
+        if (_textCompaction)
         {
-            if (value[i] > 255)
+            if (!AztecTextCompaction.TryEncodeText(value, out bits, out error))
             {
-                error = $"Character '{value[i]}' is outside the 0-255 byte range this Aztec encoder supports.";
                 return false;
             }
+        }
+        else
+        {
+            var bytes = new byte[value.Length];
 
-            bytes[i] = (byte)value[i];
+            for (var i = 0; i < value.Length; i++)
+            {
+                if (value[i] > 255)
+                {
+                    error = $"Character '{value[i]}' is outside the 0-255 byte range this Aztec encoder supports.";
+                    return false;
+                }
+
+                bytes[i] = (byte)value[i];
+            }
+
+            bits = AztecHighLevelEncoder.EncodeBinaryShift(bytes);
         }
 
-        var bits = AztecHighLevelEncoder.EncodeBinaryShift(bytes);
         var eccBits = bits.Count * EcPercent / 100 + 11;
         var totalSizeBits = bits.Count + eccBits;
 
