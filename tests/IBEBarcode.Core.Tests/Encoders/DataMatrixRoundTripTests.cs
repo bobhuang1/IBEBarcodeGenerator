@@ -75,9 +75,261 @@ public class DataMatrixRoundTripTests
         throw new ArgumentException($"No known Data Matrix size matches {matrix.Width}x{matrix.Height}.");
     }
 
-    private static string Decode(BarcodeMatrix matrix)
+    [Theory]
+    [InlineData("HELLO")]
+    [InlineData("ABCDEFGHI")]
+    [InlineData("HELLO WORLD 123")]
+    public void EncodeThenDecode_C40Mode_RoundTripsExactly(string original)
+    {
+        var encoder = new DataMatrixEncoder(mode: DataMatrixEncodingMode.C40);
+        var success = encoder.TryEncode(original, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = DecodeC40OrText(matrix!, textMode: false);
+
+        Assert.Equal(original, decoded);
+    }
+
+    [Theory]
+    [InlineData("hello")]
+    [InlineData("hello world 123")]
+    public void EncodeThenDecode_TextMode_RoundTripsExactly(string original)
+    {
+        var encoder = new DataMatrixEncoder(mode: DataMatrixEncodingMode.Text);
+        var success = encoder.TryEncode(original, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = DecodeC40OrText(matrix!, textMode: true);
+
+        Assert.Equal(original, decoded);
+    }
+
+    [Theory]
+    [InlineData("ABC123")]
+    [InlineData("HELLO*WORLD>123")]
+    public void EncodeThenDecode_X12Mode_RoundTripsExactly(string original)
+    {
+        var encoder = new DataMatrixEncoder(mode: DataMatrixEncodingMode.X12);
+        var success = encoder.TryEncode(original, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = DecodeX12(matrix!);
+
+        Assert.Equal(original, decoded);
+    }
+
+    [Theory]
+    [InlineData("Hello, Base256! \u0001\u0002ÿ")]
+    [InlineData("The quick brown fox jumps over the lazy dog 0123456789")]
+    public void EncodeThenDecode_Base256Mode_RoundTripsExactly(string original)
+    {
+        var encoder = new DataMatrixEncoder(mode: DataMatrixEncodingMode.Base256);
+        var success = encoder.TryEncode(original, out var matrix, out var error);
+
+        Assert.True(success, error);
+
+        var decoded = DecodeBase256(matrix!);
+
+        Assert.Equal(original, decoded);
+    }
+
+    // Independently reverses DataMatrixHighLevelEncoder's C40/Text triplet packing and
+    // shift-state machine (re-derived here, not shared code).
+    private static string DecodeC40OrText(BarcodeMatrix matrix, bool textMode)
+    {
+        var dataBytes = ExtractDataCodewords(matrix);
+        const string shift2Chars = "!\"#$%&'()*+,-./:;<=>?@[\\]^_";
+
+        var pos = 1; // skip the latch codeword
+        var values = new List<int>();
+
+        while (pos + 1 < dataBytes.Length && dataBytes[pos] != 254 && dataBytes[pos] != 129)
+        {
+            var codeword16 = (dataBytes[pos] * 256) + dataBytes[pos + 1] - 1;
+            values.Add(codeword16 / 1600);
+            var remainder = codeword16 % 1600;
+            values.Add(remainder / 40);
+            values.Add(remainder % 40);
+            pos += 2;
+        }
+
+        var result = new System.Text.StringBuilder();
+        var shiftState = 0;
+
+        foreach (var value in values)
+        {
+            if (shiftState == 0)
+            {
+                switch (value)
+                {
+                    case 0:
+                        shiftState = 1;
+                        continue;
+                    case 1:
+                        shiftState = 2;
+                        continue;
+                    case 2:
+                        shiftState = 3;
+                        continue;
+                    case 3:
+                        result.Append(' ');
+                        continue;
+                }
+
+                if (value is >= 4 and <= 13)
+                {
+                    result.Append((char)('0' + (value - 4)));
+                }
+                else
+                {
+                    var letter = (char)('A' + (value - 14));
+                    result.Append(textMode ? char.ToLowerInvariant(letter) : letter);
+                }
+
+                continue;
+            }
+
+            switch (shiftState)
+            {
+                case 1:
+                    result.Append((char)value);
+                    break;
+                case 2:
+                    result.Append(shift2Chars[value]);
+                    break;
+                case 3:
+                    if (value <= 25)
+                    {
+                        var letter = (char)((textMode ? 'A' : 'a') + value);
+                        result.Append(letter);
+                    }
+                    else
+                    {
+                        result.Append(value switch
+                        {
+                            26 => '{',
+                            27 => '|',
+                            28 => '}',
+                            29 => '~',
+                            _ => (char)127,
+                        });
+                    }
+
+                    break;
+            }
+
+            shiftState = 0;
+        }
+
+        // Skip the unlatch codeword (254), then decode any trailing plain-ASCII bytes.
+        pos++;
+
+        while (pos < dataBytes.Length && dataBytes[pos] != 129)
+        {
+            result.Append((char)(dataBytes[pos] - 1));
+            pos++;
+        }
+
+        return result.ToString();
+    }
+
+    // Independently reverses DataMatrixHighLevelEncoder's X12 triplet packing (no shift
+    // states -- every value maps directly to a character).
+    private static string DecodeX12(BarcodeMatrix matrix)
+    {
+        var dataBytes = ExtractDataCodewords(matrix);
+        var pos = 1;
+        var result = new System.Text.StringBuilder();
+
+        while (pos + 1 < dataBytes.Length && dataBytes[pos] != 254 && dataBytes[pos] != 129)
+        {
+            var codeword16 = (dataBytes[pos] * 256) + dataBytes[pos + 1] - 1;
+            var triplet = new[] { codeword16 / 1600, (codeword16 % 1600) / 40, codeword16 % 40 };
+
+            foreach (var value in triplet)
+            {
+                result.Append(value switch
+                {
+                    0 => '\r',
+                    1 => '*',
+                    2 => '>',
+                    3 => ' ',
+                    (>= 4 and <= 13) => (char)('0' + (value - 4)),
+                    _ => (char)('A' + (value - 14)),
+                });
+            }
+
+            pos += 2;
+        }
+
+        pos++;
+
+        while (pos < dataBytes.Length && dataBytes[pos] != 129)
+        {
+            result.Append((char)(dataBytes[pos] - 1));
+            pos++;
+        }
+
+        return result.ToString();
+    }
+
+    // Independently reverses DataMatrixHighLevelEncoder's Base256 length field and
+    // per-byte 255-modulus randomization (re-derived here, not shared code).
+    private static string DecodeBase256(BarcodeMatrix matrix)
+    {
+        var dataBytes = ExtractDataCodewords(matrix);
+
+        static byte Unrandomize255(byte randomized, int position)
+        {
+            var pseudoRandom = ((149 * position) % 255) + 1;
+            var raw = randomized - pseudoRandom;
+            return (byte)(raw < 0 ? raw + 256 : raw);
+        }
+
+        var position = 2;
+        var firstLengthByte = Unrandomize255(dataBytes[1], position);
+        position++;
+        int length;
+        int dataStart;
+
+        if (firstLengthByte <= 249)
+        {
+            length = firstLengthByte;
+            dataStart = 2;
+        }
+        else
+        {
+            var secondLengthByte = Unrandomize255(dataBytes[2], position);
+            position++;
+            length = ((firstLengthByte - 249) * 250) + secondLengthByte;
+            dataStart = 3;
+        }
+
+        var chars = new char[length];
+
+        for (var i = 0; i < length; i++)
+        {
+            chars[i] = (char)Unrandomize255(dataBytes[dataStart + i], position);
+            position++;
+        }
+
+        return new string(chars);
+    }
+
+    private static byte[] ExtractDataCodewords(BarcodeMatrix matrix)
     {
         var size = FindSizeForMatrix(matrix);
+        var allCodewords = ExtractAllCodewords(matrix, size);
+        var dataBytes = new byte[size.DataCapacity];
+        Array.Copy(allCodewords, dataBytes, size.DataCapacity);
+        return dataBytes;
+    }
+
+    private static byte[] ExtractAllCodewords(BarcodeMatrix matrix, DataMatrixSymbols.SymbolSize size)
+    {
         var numCols = size.RegionsHorizontal * size.InteriorWidth;
         var numRows = size.RegionsVertical * size.InteriorHeight;
 
@@ -274,9 +526,12 @@ public class DataMatrixRoundTripTests
         // DataMatrixErrorCorrection.EncodeEcc200 (matches ZXing's encodeECC200: the input
         // data codewords are appended to the output unchanged before ECC is computed and
         // interleaved).
-        var dataBytes = new byte[size.DataCapacity];
-        Array.Copy(allCodewords, dataBytes, size.DataCapacity);
+        return allCodewords;
+    }
 
+    private static string Decode(BarcodeMatrix matrix)
+    {
+        var dataBytes = ExtractDataCodewords(matrix);
         var messageLength = 0;
 
         for (var i = 0; i < dataBytes.Length; i++)

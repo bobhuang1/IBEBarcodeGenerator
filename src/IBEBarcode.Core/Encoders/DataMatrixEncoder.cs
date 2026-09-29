@@ -5,10 +5,12 @@ namespace IBEBarcode.Core.Encoders;
 public sealed class DataMatrixEncoder : IMatrixBarcodeEncoder
 {
     private readonly bool _preferRectangular;
+    private readonly DataMatrixEncodingMode _mode;
 
-    public DataMatrixEncoder(bool preferRectangular = false)
+    public DataMatrixEncoder(bool preferRectangular = false, DataMatrixEncodingMode mode = DataMatrixEncodingMode.Ascii)
     {
         _preferRectangular = preferRectangular;
+        _mode = mode;
     }
 
     public BarcodeSymbology Symbology => BarcodeSymbology.DataMatrix;
@@ -23,17 +25,56 @@ public sealed class DataMatrixEncoder : IMatrixBarcodeEncoder
             return false;
         }
 
-        var bytes = new byte[value.Length];
+        byte[] messageCodewords;
 
-        for (var i = 0; i < value.Length; i++)
+        if (_mode == DataMatrixEncodingMode.Ascii)
         {
-            if (value[i] > 127)
+            var bytes = new byte[value.Length];
+
+            for (var i = 0; i < value.Length; i++)
             {
-                error = $"Character '{value[i]}' is outside the ASCII 0-127 range this Data Matrix encoder supports.";
-                return false;
+                if (value[i] > 127)
+                {
+                    error = $"Character '{value[i]}' is outside the ASCII 0-127 range this Data Matrix encoder supports.";
+                    return false;
+                }
+
+                bytes[i] = (byte)(value[i] + 1);
             }
 
-            bytes[i] = (byte)(value[i] + 1);
+            messageCodewords = bytes;
+        }
+        else if (_mode == DataMatrixEncodingMode.Base256)
+        {
+            var bytes = new byte[value.Length];
+
+            for (var i = 0; i < value.Length; i++)
+            {
+                if (value[i] > 255)
+                {
+                    error = $"Character '{value[i]}' is outside the 0-255 byte range this Data Matrix encoder supports.";
+                    return false;
+                }
+
+                bytes[i] = (byte)value[i];
+            }
+
+            messageCodewords = DataMatrixHighLevelEncoder.EncodeBase256(bytes);
+        }
+        else
+        {
+            var encoded = _mode switch
+            {
+                DataMatrixEncodingMode.C40 => DataMatrixHighLevelEncoder.TryEncodeC40(value, out messageCodewords, out error),
+                DataMatrixEncodingMode.Text => DataMatrixHighLevelEncoder.TryEncodeText(value, out messageCodewords, out error),
+                DataMatrixEncodingMode.X12 => DataMatrixHighLevelEncoder.TryEncodeX12(value, out messageCodewords, out error),
+                _ => throw new ArgumentOutOfRangeException(nameof(_mode)),
+            };
+
+            if (!encoded)
+            {
+                return false;
+            }
         }
 
         DataMatrixSymbols.SymbolSize? size = null;
@@ -41,7 +82,7 @@ public sealed class DataMatrixEncoder : IMatrixBarcodeEncoder
 
         foreach (var candidate in DataMatrixSymbols.Sizes)
         {
-            if (bytes.Length > candidate.DataCapacity || candidate.DataCapacity > smallestFittingCapacity)
+            if (messageCodewords.Length > candidate.DataCapacity || candidate.DataCapacity > smallestFittingCapacity)
             {
                 continue;
             }
@@ -57,20 +98,20 @@ public sealed class DataMatrixEncoder : IMatrixBarcodeEncoder
 
         if (size is null)
         {
-            error = $"Value is too large to encode: this Data Matrix encoder supports up to {DataMatrixSymbols.Sizes[^1].DataCapacity} ASCII characters.";
+            error = $"Value is too large to encode: this Data Matrix encoder supports up to {DataMatrixSymbols.Sizes[^1].DataCapacity} codewords in this mode.";
             return false;
         }
 
         var dataCodewords = new byte[size.DataCapacity];
-        Array.Copy(bytes, dataCodewords, bytes.Length);
+        Array.Copy(messageCodewords, dataCodewords, messageCodewords.Length);
 
-        if (bytes.Length < size.DataCapacity)
+        if (messageCodewords.Length < size.DataCapacity)
         {
-            dataCodewords[bytes.Length] = 129;
+            dataCodewords[messageCodewords.Length] = 129;
 
-            for (var i = bytes.Length + 1; i < size.DataCapacity; i++)
+            for (var i = messageCodewords.Length + 1; i < size.DataCapacity; i++)
             {
-                var position = i - bytes.Length;
+                var position = i - messageCodewords.Length;
                 var pseudoRandom = ((149 * position) % 253) + 1;
                 var temp = 129 + pseudoRandom;
                 dataCodewords[i] = (byte)(temp <= 254 ? temp : temp - 254);
