@@ -38,11 +38,33 @@ public static class BarcodeRenderer
 
         if (showText)
         {
-            using var font = new SKFont(SKTypeface.Default, textStripHeight * 0.7f);
+            var style = SKFontStyle.Normal;
+
+            if (options.FontBold && options.FontItalic)
+            {
+                style = SKFontStyle.BoldItalic;
+            }
+            else if (options.FontBold)
+            {
+                style = SKFontStyle.Bold;
+            }
+            else if (options.FontItalic)
+            {
+                style = SKFontStyle.Italic;
+            }
+
+            using var typeface = SKTypeface.FromFamilyName(options.FontFamily, style);
+            using var font = new SKFont(typeface, textStripHeight * 0.7f);
             var textWidth = font.MeasureText(pattern.HumanReadableText);
             var textX = Math.Max(0f, (totalWidth - textWidth) / 2f);
             var textY = options.BarHeightPixels + textStripHeight * 0.8f;
             canvas.DrawText(pattern.HumanReadableText, textX, textY, SKTextAlign.Left, font, paint);
+
+            if (options.FontUnderline)
+            {
+                var underlineY = textY + textStripHeight * 0.12f;
+                canvas.DrawLine(textX, underlineY, textX + textWidth, underlineY, paint);
+            }
         }
 
         return bitmap;

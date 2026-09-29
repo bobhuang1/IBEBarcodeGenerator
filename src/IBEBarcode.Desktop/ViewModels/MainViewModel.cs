@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using IBEBarcode.Core;
 using IBEBarcode.Core.Encoders;
 using IBEBarcode.Printing;
@@ -37,8 +38,12 @@ public enum SupportedSymbology
 
 public partial class MainViewModel : ViewModelBase
 {
+    private const int MaxQuantity = 1000;
+    private const int MinZoomPercent = 25;
+    private const int MaxZoomPercent = 400;
+
     [ObservableProperty]
-    public partial string InputText { get; set; } = "HELLO123";
+    public partial string InputText { get; set; } = "34738";
 
     [ObservableProperty]
     public partial SupportedSymbology SelectedSymbology { get; set; } = SupportedSymbology.Code39;
@@ -52,11 +57,67 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     public partial PaperTemplate? SelectedTemplate { get; set; }
 
+    [ObservableProperty]
+    public partial bool ShowBarcodeValue { get; set; } = true;
+
+    [ObservableProperty]
+    public partial int BarcodeIncrement { get; set; }
+
+    [ObservableProperty]
+    public partial int Quantity { get; set; } = 2;
+
+    [ObservableProperty]
+    public partial string UserField1 { get; set; } = "IBE Group, Inc";
+
+    [ObservableProperty]
+    public partial string UserField2 { get; set; } = "20050112001";
+
+    [ObservableProperty]
+    public partial int UserField2Increment { get; set; }
+
+    [ObservableProperty]
+    public partial string FontFamily { get; set; } = "Arial";
+
+    [ObservableProperty]
+    public partial int FontSize { get; set; } = 10;
+
+    [ObservableProperty]
+    public partial bool FontBold { get; set; }
+
+    [ObservableProperty]
+    public partial bool FontItalic { get; set; }
+
+    [ObservableProperty]
+    public partial bool FontUnderline { get; set; }
+
+    [ObservableProperty]
+    public partial int RotationDegrees { get; set; }
+
+    [ObservableProperty]
+    public partial int ZoomPercent { get; set; } = 100;
+
+    public double ZoomScale => ZoomPercent / 100.0;
+
     public IReadOnlyList<SupportedSymbology> AvailableSymbologies { get; } =
         Enum.GetValues<SupportedSymbology>();
 
     public IReadOnlyList<PaperTemplate> AvailableTemplates { get; } =
         PaperTemplateCatalog.AllTemplates;
+
+    public IReadOnlyList<string> AvailableFontFamilies { get; } =
+        new[] { "Arial", "Times New Roman", "Courier New", "Verdana", "Consolas" };
+
+    public string StatusPageSize => SelectedTemplate is { } t
+        ? $"{t.PageWidthMm / 25.4:0.##} inch(es) * {t.PageHeightMm / 25.4:0.##} inch(es)"
+        : string.Empty;
+
+    public string StatusLabelSize => SelectedTemplate is { } t
+        ? $"{t.LabelWidthMm / 25.4:0.##} inch(es) * {t.LabelHeightMm / 25.4:0.##} inch(es)"
+        : string.Empty;
+
+    public string StatusSymbology => SelectedSymbology.ToString();
+
+    public string StatusDate => DateTime.Today.ToString("yyyy-M-d");
 
     private byte[]? _lastPngBytes;
 
@@ -70,23 +131,27 @@ public partial class MainViewModel : ViewModelBase
     {
         pdfBytes = null;
 
-        if (_lastPngBytes is null)
-        {
-            error = "Generate a valid barcode before exporting a label sheet.";
-            return false;
-        }
-
         if (SelectedTemplate is null)
         {
             error = "Select a paper template before exporting a label sheet.";
             return false;
         }
 
+        var clampedQuantity = Math.Clamp(Quantity, 1, MaxQuantity);
         var images = new List<byte[]>();
 
-        for (var i = 0; i < SelectedTemplate.LabelCount; i++)
+        for (var i = 0; i < clampedQuantity; i++)
         {
-            images.Add(_lastPngBytes);
+            if (!TryRenderLabel(
+                    IncrementNumericSuffix(InputText, BarcodeIncrement * i),
+                    IncrementNumericSuffix(UserField2, UserField2Increment * i),
+                    out var pngBytes,
+                    out error))
+            {
+                return false;
+            }
+
+            images.Add(pngBytes!);
         }
 
         pdfBytes = LabelSheetPdfGenerator.Generate(SelectedTemplate, images);
@@ -94,9 +159,96 @@ public partial class MainViewModel : ViewModelBase
         return true;
     }
 
+    [RelayCommand]
+    private void RotateLeft() => RotationDegrees = (RotationDegrees + 270) % 360;
+
+    [RelayCommand]
+    private void RotateRight() => RotationDegrees = (RotationDegrees + 90) % 360;
+
+    [RelayCommand]
+    private void ZoomIn() => ZoomPercent = Math.Min(MaxZoomPercent, ZoomPercent + 25);
+
+    [RelayCommand]
+    private void ZoomOut() => ZoomPercent = Math.Max(MinZoomPercent, ZoomPercent - 25);
+
     partial void OnInputTextChanged(string value) => Regenerate();
 
     partial void OnSelectedSymbologyChanged(SupportedSymbology value) => Regenerate();
+
+    partial void OnSelectedTemplateChanged(PaperTemplate? value)
+    {
+        OnPropertyChanged(nameof(StatusPageSize));
+        OnPropertyChanged(nameof(StatusLabelSize));
+    }
+
+    partial void OnQuantityChanged(int value)
+    {
+        var clamped = Math.Clamp(value, 1, MaxQuantity);
+
+        if (clamped != value)
+        {
+            Quantity = clamped;
+        }
+    }
+
+    partial void OnShowBarcodeValueChanged(bool value) => Regenerate();
+
+    partial void OnUserField1Changed(string value) => Regenerate();
+
+    partial void OnUserField2Changed(string value) => Regenerate();
+
+    partial void OnFontFamilyChanged(string value) => Regenerate();
+
+    partial void OnFontSizeChanged(int value) => Regenerate();
+
+    partial void OnFontBoldChanged(bool value) => Regenerate();
+
+    partial void OnFontItalicChanged(bool value) => Regenerate();
+
+    partial void OnFontUnderlineChanged(bool value) => Regenerate();
+
+    partial void OnRotationDegreesChanged(int value) => Regenerate();
+
+    partial void OnZoomPercentChanged(int value) => OnPropertyChanged(nameof(ZoomScale));
+
+    private static string IncrementNumericSuffix(string value, int delta)
+    {
+        if (delta == 0 || string.IsNullOrEmpty(value))
+        {
+            return value;
+        }
+
+        var i = value.Length;
+
+        while (i > 0 && char.IsDigit(value[i - 1]))
+        {
+            i--;
+        }
+
+        if (i == value.Length)
+        {
+            return value;
+        }
+
+        var prefix = value[..i];
+        var digits = value[i..];
+        var width = digits.Length;
+
+        if (!long.TryParse(digits, out var number))
+        {
+            return value;
+        }
+
+        var next = Math.Max(0, number + delta);
+        var nextText = next.ToString();
+
+        if (nextText.Length < width)
+        {
+            nextText = nextText.PadLeft(width, '0');
+        }
+
+        return prefix + nextText;
+    }
 
     private void Regenerate()
     {
@@ -104,15 +256,31 @@ public partial class MainViewModel : ViewModelBase
         PreviewImage = null;
         _lastPngBytes = null;
 
-        if (string.IsNullOrEmpty(InputText))
+        if (!TryRenderLabel(InputText, UserField2, out var pngBytes, out var error))
         {
-            ErrorMessage = "Enter a value to encode.";
+            ErrorMessage = error;
             return;
+        }
+
+        _lastPngBytes = pngBytes;
+        using var stream = new MemoryStream(pngBytes!);
+        PreviewImage = new Bitmap(stream);
+        OnPropertyChanged(nameof(StatusSymbology));
+    }
+
+    private bool TryRenderLabel(string barcodeValue, string userField2Value, out byte[]? pngBytes, out string? error)
+    {
+        pngBytes = null;
+
+        if (string.IsNullOrEmpty(barcodeValue))
+        {
+            error = "Enter a value to encode.";
+            return false;
         }
 
         try
         {
-            byte[] pngBytes;
+            byte[] rawPngBytes;
 
             if (SelectedSymbology is SupportedSymbology.QrCode or SupportedSymbology.DataMatrix or SupportedSymbology.Pdf417 or SupportedSymbology.Aztec)
             {
@@ -124,25 +292,23 @@ public partial class MainViewModel : ViewModelBase
                     _ => new AztecEncoder(),
                 };
 
-                if (!matrixEncoder.TryEncode(InputText, out var matrix, out var error))
+                if (!matrixEncoder.TryEncode(barcodeValue, out var matrix, out error))
                 {
-                    ErrorMessage = error;
-                    return;
+                    return false;
                 }
 
-                pngBytes = MatrixRenderer.RenderToPng(matrix!, new MatrixRenderOptions { ModuleSizePixels = 8, QuietZoneModules = 4 });
+                rawPngBytes = MatrixRenderer.RenderToPng(matrix!, new MatrixRenderOptions { ModuleSizePixels = 8, QuietZoneModules = 4 });
             }
             else if (SelectedSymbology == SupportedSymbology.Postnet)
             {
                 var postnetEncoder = new PostnetEncoder();
 
-                if (!postnetEncoder.TryEncode(InputText, out var heightPattern, out var error))
+                if (!postnetEncoder.TryEncode(barcodeValue, out var heightPattern, out error))
                 {
-                    ErrorMessage = error;
-                    return;
+                    return false;
                 }
 
-                pngBytes = HeightBarRenderer.RenderToPng(heightPattern!, new HeightBarRenderOptions { BarWidthPixels = 3, GapPixels = 2 });
+                rawPngBytes = HeightBarRenderer.RenderToPng(heightPattern!, new HeightBarRenderOptions { BarWidthPixels = 3, GapPixels = 2 });
             }
             else
             {
@@ -166,22 +332,44 @@ public partial class MainViewModel : ViewModelBase
                     _ => throw new ArgumentOutOfRangeException(),
                 };
 
-                if (!encoder.TryEncode(InputText, out var pattern, out var error))
+                if (!encoder.TryEncode(barcodeValue, out var pattern, out error))
                 {
-                    ErrorMessage = error;
-                    return;
+                    return false;
                 }
 
-                pngBytes = BarcodeRenderer.RenderToPng(pattern!, new BarcodeRenderOptions { ModuleWidthPixels = 2, QuietZoneModules = 10, BarHeightPixels = 80, ShowHumanReadableText = true, TextHeightPixels = 24 });
+                rawPngBytes = BarcodeRenderer.RenderToPng(pattern!, new BarcodeRenderOptions
+                {
+                    ModuleWidthPixels = 2,
+                    QuietZoneModules = 10,
+                    BarHeightPixels = 80,
+                    ShowHumanReadableText = ShowBarcodeValue,
+                    TextHeightPixels = Math.Max(16, FontSize * 2),
+                    FontFamily = FontFamily,
+                    FontBold = FontBold,
+                    FontItalic = FontItalic,
+                    FontUnderline = FontUnderline,
+                });
             }
 
-            _lastPngBytes = pngBytes;
-            using var stream = new MemoryStream(pngBytes);
-            PreviewImage = new Bitmap(stream);
+            pngBytes = LabelComposer.Compose(rawPngBytes, new LabelComposeOptions
+            {
+                PrefixText = UserField1,
+                SuffixText = userField2Value,
+                FontFamily = FontFamily,
+                FontSize = FontSize,
+                FontBold = FontBold,
+                FontItalic = FontItalic,
+                FontUnderline = FontUnderline,
+                RotationDegrees = RotationDegrees,
+            });
+
+            error = null;
+            return true;
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Unexpected error: {ex.Message}";
+            error = $"Unexpected error: {ex.Message}";
+            return false;
         }
     }
 }

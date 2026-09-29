@@ -11,4 +11,8 @@ public sealed class BarcodeRenderOptions
     public SKColor BackgroundColor { get; init; } = SKColors.White;
     public bool ShowHumanReadableText { get; init; } = false;
     public int TextHeightPixels { get; init; } = 20;
+    public string FontFamily { get; init; } = "Arial";
+    public bool FontBold { get; init; }
+    public bool FontItalic { get; init; }
+    public bool FontUnderline { get; init; }
 }

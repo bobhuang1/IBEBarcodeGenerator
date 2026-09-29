@@ -8,41 +8,43 @@ public static class LabelSheetPdfGenerator
 {
     private const double PointsPerMillimeter = 72.0 / 25.4;
 
+    /// <summary>
+    /// Lays out label images across one or more sheet pages, wrapping onto a new page once
+    /// a page's <see cref="PaperTemplate.LabelCount"/> positions are filled. Any number of
+    /// images is accepted -- a 1000-image batch on a 30-label-per-sheet template produces
+    /// 34 pages.
+    /// </summary>
     public static byte[] Generate(PaperTemplate template, IReadOnlyList<byte[]> labelPngImages)
     {
-        if (labelPngImages.Count > template.LabelCount)
-        {
-            throw new ArgumentException(
-                $"Template '{template.Vendor} {template.Code}' has {template.LabelCount} label positions but {labelPngImages.Count} images were provided.",
-                nameof(labelPngImages));
-        }
-
         var document = new PdfDocument();
-        var page = document.AddPage();
-        page.Width = XUnit.FromPoint(template.PageWidthMm * PointsPerMillimeter);
-        page.Height = XUnit.FromPoint(template.PageHeightMm * PointsPerMillimeter);
-
-        using var gfx = XGraphics.FromPdfPage(page);
-
         var index = 0;
 
-        for (var row = 0; row < template.Rows && index < labelPngImages.Count; row++)
+        while (index < labelPngImages.Count || index == 0)
         {
-            for (var column = 0; column < template.Columns && index < labelPngImages.Count; column++)
+            var page = document.AddPage();
+            page.Width = XUnit.FromPoint(template.PageWidthMm * PointsPerMillimeter);
+            page.Height = XUnit.FromPoint(template.PageHeightMm * PointsPerMillimeter);
+
+            using var gfx = XGraphics.FromPdfPage(page);
+
+            for (var row = 0; row < template.Rows && index < labelPngImages.Count; row++)
             {
-                var (xMm, yMm) = template.LabelPosition(column, row);
+                for (var column = 0; column < template.Columns && index < labelPngImages.Count; column++)
+                {
+                    var (xMm, yMm) = template.LabelPosition(column, row);
 
-                using var stream = new MemoryStream(labelPngImages[index]);
-                using var image = XImage.FromStream(stream);
+                    using var stream = new MemoryStream(labelPngImages[index]);
+                    using var image = XImage.FromStream(stream);
 
-                gfx.DrawImage(
-                    image,
-                    xMm * PointsPerMillimeter,
-                    yMm * PointsPerMillimeter,
-                    template.LabelWidthMm * PointsPerMillimeter,
-                    template.LabelHeightMm * PointsPerMillimeter);
+                    gfx.DrawImage(
+                        image,
+                        xMm * PointsPerMillimeter,
+                        yMm * PointsPerMillimeter,
+                        template.LabelWidthMm * PointsPerMillimeter,
+                        template.LabelHeightMm * PointsPerMillimeter);
 
-                index++;
+                    index++;
+                }
             }
         }
 

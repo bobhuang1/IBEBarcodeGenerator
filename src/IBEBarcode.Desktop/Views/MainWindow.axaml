@@ -3,11 +3,11 @@
         xmlns:vm="using:IBEBarcode.Desktop.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="500"
+        mc:Ignorable="d" d:DesignWidth="820" d:DesignHeight="600"
         x:Class="IBEBarcode.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Width="700" Height="500"
+        Width="820" Height="600"
         Title="IBE Barcode Generator">
 
     <Design.DataContext>
@@ -16,26 +16,97 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <StackPanel Margin="16" Spacing="12">
-        <TextBlock Text="IBE Barcode Generator" FontSize="20" FontWeight="Bold" />
+    <DockPanel>
+        <!-- Menu bar -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="Save Label Sheet PDF..." Click="OnSaveLabelSheetPdfClick" />
+            </MenuItem>
+            <MenuItem Header="_Symbology">
+                <MenuItem Header="{Binding SelectedSymbology}" IsEnabled="False" />
+            </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="Rotate Left" Command="{Binding RotateLeftCommand}" />
+                <MenuItem Header="Rotate Right" Command="{Binding RotateRightCommand}" />
+            </MenuItem>
+            <MenuItem Header="_Help" />
+        </Menu>
 
-        <TextBox PlaceholderText="Value to encode" Text="{Binding InputText}" />
+        <!-- Status bar -->
+        <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,*,Auto,Auto" Margin="4">
+            <TextBlock Grid.Column="0" Text="{Binding ZoomPercent, StringFormat={}{0}%}" Margin="4,0" />
+            <TextBlock Grid.Column="1" Text="{Binding StatusLabelSize}" Margin="4,0" />
+            <TextBlock Grid.Column="2" Text="{Binding StatusSymbology}" Margin="4,0" />
+            <TextBlock Grid.Column="3" Text="{Binding StatusDate}" Margin="4,0" />
+        </Grid>
 
-        <ComboBox ItemsSource="{Binding AvailableSymbologies}" SelectedItem="{Binding SelectedSymbology}" />
+        <StackPanel Margin="8" Spacing="6">
+            <!-- Toolbar row: symbology + rotate + zoom + print preview -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <ComboBox ItemsSource="{Binding AvailableSymbologies}" SelectedItem="{Binding SelectedSymbology}" Width="160" />
+                <Button Content="&#8630; Rotate Left" Command="{Binding RotateLeftCommand}" />
+                <Button Content="Rotate Right &#8631;" Command="{Binding RotateRightCommand}" />
+                <Button Content="Zoom In (+)" Command="{Binding ZoomInCommand}" />
+                <Button Content="Zoom Out (-)" Command="{Binding ZoomOutCommand}" />
+                <Button Content="Save Label Sheet PDF..." Click="OnSaveLabelSheetPdfClick" />
+            </StackPanel>
 
-        <TextBlock Text="{Binding ErrorMessage}"
-                   Foreground="Red"
-                   TextWrapping="Wrap" />
+            <!-- Font row -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <ComboBox ItemsSource="{Binding AvailableFontFamilies}" SelectedItem="{Binding FontFamily}" Width="140" />
+                <NumericUpDown Value="{Binding FontSize}" Minimum="6" Maximum="72" Width="100" />
+                <ToggleButton Content="B" FontWeight="Bold" IsChecked="{Binding FontBold}" />
+                <ToggleButton Content="I" FontStyle="Italic" IsChecked="{Binding FontItalic}" />
+                <ToggleButton Content="U" IsChecked="{Binding FontUnderline}">
+                    <ToggleButton.Styles>
+                        <Style Selector="ToggleButton > ContentPresenter > TextBlock">
+                            <Setter Property="TextDecorations" Value="Underline" />
+                        </Style>
+                    </ToggleButton.Styles>
+                </ToggleButton>
+            </StackPanel>
 
-        <Border BorderBrush="Gray" BorderThickness="1" Padding="8" HorizontalAlignment="Left">
-            <Image Source="{Binding PreviewImage}" MaxWidth="600" />
-        </Border>
+            <!-- Barcode value row: value / increment / quantity -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <CheckBox Content="Barcode Value" IsChecked="{Binding ShowBarcodeValue}" VerticalAlignment="Center" />
+                <TextBox Text="{Binding InputText}" Width="140" PlaceholderText="Value to encode" />
+                <TextBlock Text="Barcode Increment" VerticalAlignment="Center" Margin="8,0,0,0" />
+                <NumericUpDown Value="{Binding BarcodeIncrement}" Width="100" />
+                <TextBlock Text="Quantity" VerticalAlignment="Center" Margin="8,0,0,0" />
+                <NumericUpDown Value="{Binding Quantity}" Minimum="1" Maximum="1000" Width="100" />
+            </StackPanel>
 
-        <TextBlock Text="Paper template" FontWeight="Bold" Margin="0,12,0,0" />
+            <!-- User field row -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="User Field 1" VerticalAlignment="Center" />
+                <TextBox Text="{Binding UserField1}" Width="160" />
+                <TextBlock Text="User Field 2" VerticalAlignment="Center" Margin="8,0,0,0" />
+                <TextBox Text="{Binding UserField2}" Width="140" />
+                <TextBlock Text="User Field 2 Increment" VerticalAlignment="Center" Margin="8,0,0,0" />
+                <NumericUpDown Value="{Binding UserField2Increment}" Width="100" />
+            </StackPanel>
 
-        <ComboBox ItemsSource="{Binding AvailableTemplates}" SelectedItem="{Binding SelectedTemplate}" />
+            <!-- Paper type row -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="Current Paper Type" VerticalAlignment="Center" />
+                <ComboBox ItemsSource="{Binding AvailableTemplates}" SelectedItem="{Binding SelectedTemplate}" Width="220" />
+            </StackPanel>
 
-        <Button Content="Save Label Sheet PDF..." Click="OnSaveLabelSheetPdfClick" HorizontalAlignment="Left" />
-    </StackPanel>
+            <TextBlock Text="{Binding ErrorMessage}"
+                       Foreground="Red"
+                       TextWrapping="Wrap" />
+
+            <!-- Preview canvas -->
+            <Border BorderBrush="Gray" BorderThickness="1" Padding="16" Background="#B7B29B" HorizontalAlignment="Stretch" MinHeight="280">
+                <Border Background="White" BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16">
+                    <Image Source="{Binding PreviewImage}" RenderTransformOrigin="0.5,0.5">
+                        <Image.RenderTransform>
+                            <ScaleTransform ScaleX="{Binding ZoomScale}" ScaleY="{Binding ZoomScale}" />
+                        </Image.RenderTransform>
+                    </Image>
+                </Border>
+            </Border>
+        </StackPanel>
+    </DockPanel>
 
 </Window>

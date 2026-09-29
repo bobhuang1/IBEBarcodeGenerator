@@ -66,10 +66,30 @@ public class LabelSheetPdfGeneratorTests
     }
 
     [Fact]
-    public void Generate_MoreImagesThanLabelPositions_Throws()
+    public void Generate_MoreImagesThanLabelPositions_WrapsOntoASecondPage()
     {
+        // The 2x2 template holds 4 labels per page; a 5th image must start a new page.
         var images = new[] { TinyPng, TinyPng, TinyPng, TinyPng, TinyPng };
 
-        Assert.Throws<ArgumentException>(() => LabelSheetPdfGenerator.Generate(SmallTemplate(), images));
+        var pdfBytes = LabelSheetPdfGenerator.Generate(SmallTemplate(), images);
+
+        using var stream = new MemoryStream(pdfBytes);
+        using var document = PdfSharp.Pdf.IO.PdfReader.Open(stream, PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import);
+        Assert.Equal(2, document.PageCount);
+    }
+
+    [Fact]
+    public void Generate_LargeBatch_ProducesEnoughPagesForAllImages()
+    {
+        // 1000 images on a 4-label-per-page template needs 250 pages -- exercises the
+        // "up to 1000 sequential labels" batch-printing path end to end.
+        var images = new byte[1000][];
+        Array.Fill(images, TinyPng);
+
+        var pdfBytes = LabelSheetPdfGenerator.Generate(SmallTemplate(), images);
+
+        using var stream = new MemoryStream(pdfBytes);
+        using var document = PdfSharp.Pdf.IO.PdfReader.Open(stream, PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import);
+        Assert.Equal(250, document.PageCount);
     }
 }
