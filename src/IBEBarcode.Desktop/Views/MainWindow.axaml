@@ -99,11 +99,9 @@
             <!-- Preview canvas -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="16" Background="#B7B29B" HorizontalAlignment="Stretch" MinHeight="280">
                 <Border Background="White" BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16">
-                    <Image Source="{Binding PreviewImage}" RenderTransformOrigin="0.5,0.5">
-                        <Image.RenderTransform>
-                            <ScaleTransform ScaleX="{Binding ZoomScale}" ScaleY="{Binding ZoomScale}" />
-                        </Image.RenderTransform>
-                    </Image>
+                    <Viewbox Width="{Binding PreviewBoxWidth}" Height="{Binding PreviewBoxHeight}" Stretch="Uniform">
+                        <Image Source="{Binding PreviewImage}" />
+                    </Viewbox>
                 </Border>
             </Border>
         </StackPanel>

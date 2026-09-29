@@ -98,6 +98,12 @@ public partial class MainViewModel : ViewModelBase
 
     public double ZoomScale => ZoomPercent / 100.0;
 
+    private const double BasePreviewWidth = 600;
+    private const double BasePreviewHeight = 350;
+
+    public double PreviewBoxWidth => BasePreviewWidth * ZoomScale;
+    public double PreviewBoxHeight => BasePreviewHeight * ZoomScale;
+
     public IReadOnlyList<SupportedSymbology> AvailableSymbologies { get; } =
         Enum.GetValues<SupportedSymbology>();
 
@@ -209,7 +215,12 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnRotationDegreesChanged(int value) => Regenerate();
 
-    partial void OnZoomPercentChanged(int value) => OnPropertyChanged(nameof(ZoomScale));
+    partial void OnZoomPercentChanged(int value)
+    {
+        OnPropertyChanged(nameof(ZoomScale));
+        OnPropertyChanged(nameof(PreviewBoxWidth));
+        OnPropertyChanged(nameof(PreviewBoxHeight));
+    }
 
     private static string IncrementNumericSuffix(string value, int delta)
     {
@@ -297,7 +308,7 @@ public partial class MainViewModel : ViewModelBase
                     return false;
                 }
 
-                rawPngBytes = MatrixRenderer.RenderToPng(matrix!, new MatrixRenderOptions { ModuleSizePixels = 8, QuietZoneModules = 4 });
+                rawPngBytes = MatrixRenderer.RenderToPng(matrix!, new MatrixRenderOptions { ModuleSizePixels = 12, QuietZoneModules = 4 });
             }
             else if (SelectedSymbology == SupportedSymbology.Postnet)
             {
@@ -308,7 +319,7 @@ public partial class MainViewModel : ViewModelBase
                     return false;
                 }
 
-                rawPngBytes = HeightBarRenderer.RenderToPng(heightPattern!, new HeightBarRenderOptions { BarWidthPixels = 3, GapPixels = 2 });
+                rawPngBytes = HeightBarRenderer.RenderToPng(heightPattern!, new HeightBarRenderOptions { BarWidthPixels = 5, GapPixels = 3 });
             }
             else
             {
@@ -339,11 +350,11 @@ public partial class MainViewModel : ViewModelBase
 
                 rawPngBytes = BarcodeRenderer.RenderToPng(pattern!, new BarcodeRenderOptions
                 {
-                    ModuleWidthPixels = 2,
+                    ModuleWidthPixels = 4,
                     QuietZoneModules = 10,
-                    BarHeightPixels = 80,
+                    BarHeightPixels = 160,
                     ShowHumanReadableText = ShowBarcodeValue,
-                    TextHeightPixels = Math.Max(16, FontSize * 2),
+                    TextHeightPixels = Math.Max(32, FontSize * 4),
                     FontFamily = FontFamily,
                     FontBold = FontBold,
                     FontItalic = FontItalic,
