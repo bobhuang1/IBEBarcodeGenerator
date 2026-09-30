@@ -19,6 +19,7 @@
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Resource-Policy": "same-site",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' blob:; frame-src 'none'; worker-src 'self' blob:; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' blob:; frame-src 'none'; worker-src 'self' blob:; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; report-uri https://generator.ibebarcode.com/api/csp-report; report-to csp-endpoint",
+    "Reporting-Endpoints": "csp-endpoint=\"https://generator.ibebarcode.com/api/csp-report\""
   }
 }
