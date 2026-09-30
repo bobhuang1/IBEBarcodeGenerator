@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IBEBarcode.Core;
 using IBEBarcode.Core.Encoders;
+using IBEBarcode.Localization;
 using IBEBarcode.Printing;
 using IBEBarcode.Rendering;
 using IBEBarcode.Templates;
@@ -96,6 +97,36 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     public partial int ZoomPercent { get; set; } = 100;
 
+    [ObservableProperty]
+    public partial AppLanguage SelectedLanguage { get; set; } = DetectLanguage();
+
+    public StringTable S => Strings.Get(SelectedLanguage);
+
+    public IReadOnlyList<AppLanguage> AvailableLanguages { get; } = Strings.AllLanguages;
+
+    partial void OnSelectedLanguageChanged(AppLanguage value)
+    {
+        // Localized captions, menu labels and status text all re-read S.
+        OnPropertyChanged(nameof(S));
+        OnPropertyChanged(nameof(StatusPageSize));
+        OnPropertyChanged(nameof(StatusLabelSize));
+        OnPropertyChanged(nameof(StatusSymbology));
+        Regenerate();
+    }
+
+    private static AppLanguage DetectLanguage()
+    {
+        try
+        {
+            return AppLanguageExtensions.FromCultureName(
+                System.Globalization.CultureInfo.CurrentUICulture.Name);
+        }
+        catch
+        {
+            return AppLanguage.English;
+        }
+    }
+
     public double ZoomScale => ZoomPercent / 100.0;
 
     private const double BasePreviewWidth = 600;
@@ -114,11 +145,11 @@ public partial class MainViewModel : ViewModelBase
         new[] { "Arial", "Times New Roman", "Courier New", "Verdana", "Consolas" };
 
     public string StatusPageSize => SelectedTemplate is { } t
-        ? $"{t.PageWidthMm / 25.4:0.##} inch(es) * {t.PageHeightMm / 25.4:0.##} inch(es)"
+        ? $"{t.PageWidthMm / 25.4:0.##} {S.InchesSuffix} * {t.PageHeightMm / 25.4:0.##} {S.InchesSuffix}"
         : string.Empty;
 
     public string StatusLabelSize => SelectedTemplate is { } t
-        ? $"{t.LabelWidthMm / 25.4:0.##} inch(es) * {t.LabelHeightMm / 25.4:0.##} inch(es)"
+        ? $"{t.LabelWidthMm / 25.4:0.##} {S.InchesSuffix} * {t.LabelHeightMm / 25.4:0.##} {S.InchesSuffix}"
         : string.Empty;
 
     public string StatusSymbology => SelectedSymbology.ToString();
@@ -139,7 +170,7 @@ public partial class MainViewModel : ViewModelBase
 
         if (SelectedTemplate is null)
         {
-            error = "Select a paper template before exporting a label sheet.";
+            error = S.SelectTemplateFirst;
             return false;
         }
 
@@ -285,7 +316,7 @@ public partial class MainViewModel : ViewModelBase
 
         if (string.IsNullOrEmpty(barcodeValue))
         {
-            error = "Enter a value to encode.";
+            error = S.EnterValueToEncode;
             return false;
         }
 
@@ -386,7 +417,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            error = $"Unexpected error: {ex.Message}";
+            error = S.Format(S.UnexpectedError, ex.Message);
             return false;
         }
     }

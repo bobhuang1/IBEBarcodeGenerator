@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using IBEBarcode.Desktop.ViewModels;
+using IBEBarcode.Localization;
 
 namespace IBEBarcode.Desktop.Views;
 
@@ -36,7 +37,9 @@ public partial class MainWindow : Window
 
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Save Label Sheet PDF",
+            // The menu caption carries the trailing ellipsis a command that opens a dialog
+            // gets by convention; a dialog title does not.
+            Title = viewModel.S.SaveLabelSheetPdf.TrimEnd('.', '…'),
             SuggestedFileName = "label-sheet",
             DefaultExtension = "pdf",
             FileTypeChoices = new[] { pdfFileType },
@@ -56,5 +59,15 @@ public partial class MainWindow : Window
     {
         var helpFilePath = Path.Combine(AppContext.BaseDirectory, "Assets", "help.html");
         Process.Start(new ProcessStartInfo(helpFilePath) { UseShellExecute = true });
+    }
+
+    private void OnLanguageClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menuItem
+            && DataContext is MainViewModel viewModel
+            && Enum.TryParse<AppLanguage>(menuItem.Tag?.ToString(), out var language))
+        {
+            viewModel.SelectedLanguage = language;
+        }
     }
 }

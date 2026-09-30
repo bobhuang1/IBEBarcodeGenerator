@@ -29,6 +29,18 @@
         <span class="dismiss">🗙</span>
     </div>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
+    <script>
+        // Language helpers for the Blazor pages (localStorage + document lang).
+        window.ibeLang = {
+            get: (key) => window.localStorage.getItem(key),
+            set: (key, value) => window.localStorage.setItem(key, value),
+            preferredLanguages: () =>
+                (navigator.languages && navigator.languages.length
+                    ? Array.from(navigator.languages)
+                    : navigator.language ? [navigator.language] : []),
+            setDocumentLang: (tag) => { document.documentElement.setAttribute('lang', tag); },
+        };
+    </script>
 </body>
 
 </html>

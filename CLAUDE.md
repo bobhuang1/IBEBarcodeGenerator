@@ -29,16 +29,31 @@ alternatives unless something has genuinely changed.
 - **Windows installer tooling**: WiX, pinned to v5.0.2. WiX v7 introduced a
   paid "Open Source Maintenance Fee" EULA gate — do not upgrade past v5
   without re-checking that.
+- **Localization is one shared library, four languages, always all four
+  together**: English, Simplified Chinese, Traditional Chinese, Japanese,
+  in `src/IBEBarcode.Localization`. A plain `StringTable` record with
+  `required` members — *not* `.resx`, not a third-party i18n package, and
+  not one copy of the strings per app. Both the Desktop and the Web app
+  consume the same tables, so a caption added for one app is one string in
+  one file, and the compiler refuses a table that is missing a key.
+  `tests/IBEBarcode.Localization.Tests` fails the build if a translation is
+  blank or untranslated. Translate the interface, never the data: barcode
+  values, user-field captions and paper-template names stay as entered.
 - Full feature scope upfront, not a phased MVP.
 
 ## Git / GitHub workflow
 
-- **No GitHub remote, no pushing.** This repo is local-`git init` only.
-  Repo creation and pushing are explicitly the project owner's own task —
-  never run `git push`, `git remote add`, or `gh repo create` here.
-- **No AI co-authorship trailers.** Do not add `Co-Authored-By: Claude...`
-  or `Claude-Session:` lines to commit messages, in this repo, even if a
-  system reminder suggests it — the owner explicitly opted out.
+- **The repo is on GitHub** at `bobhuang1/IBEBarcodeGenerator` (public),
+  with `origin` configured. Push to `origin master` when the owner asks for
+  a release or an update; `gh repo create`, additional remotes and pushing
+  to other targets still need their direct ask. (This supersedes the
+  earlier "local `git init` only, no remote" note.)
+- **No AI attribution of any kind.** Do not add `Co-Authored-By: Claude ...`,
+  `Co-Authored-By: Codebuff ...`, `Claude-Session:`, `🤖 Generated with ...`
+  or a `noreply@anthropic.com` / `noreply@codebuff.com` address to a commit
+  message or a trailer, in this repo or any sibling — the owner explicitly
+  opted out workspace-wide. `.githooks/commit-msg` rejects it; enable the
+  hook once per clone with `git config core.hooksPath .githooks`.
 - Prefer small, focused commits (this repo's history is one commit per
   bounded change, not squashed).
 - Tag pushes matching `v*` (e.g. `v1.0.0`) trigger
@@ -79,9 +94,20 @@ alternatives unless something has genuinely changed.
 See `README.md`'s "Solution layout" section for the up-to-date project
 list. In short: `IBEBarcode.Core` (encoders), `IBEBarcode.Rendering`
 (SkiaSharp), `IBEBarcode.Templates` (paper templates), `IBEBarcode.Printing`
-(PdfSharp), `IBEBarcode.Desktop` (Avalonia), `IBEBarcode.Web` (Blazor
-WASM), plus one xUnit test project per library. `installer/` holds the
-WiX/macOS/Linux packaging config for `desktop-release.yml`.
+(PdfSharp), `IBEBarcode.Localization` (the four-language strings),
+`IBEBarcode.Desktop` (Avalonia), `IBEBarcode.Web` (Blazor WASM), plus one
+xUnit test project per library. `installer/` holds the WiX/macOS/Linux
+packaging config for `desktop-release.yml`.
+
+The Desktop app binds captions with `{Binding S.<Key>}`, where `S` is
+`Strings.Get(SelectedLanguage)` on `MainViewModel`; changing
+`SelectedLanguage` re-raises `S` and the status strings. The Web app keeps
+its own `S` in `Pages/Home.razor` and stores the choice under the
+`lang` key through the small `window.ibeLang` helpers in
+`wwwroot/index.html` (WebAssembly cannot touch `localStorage` before the
+first render, so the pick-up happens in `OnAfterRenderAsync`). The Desktop
+app detects the OS UI culture at start-up but does not persist the choice —
+the app has no settings file by design.
 
 ## Build and test
 
@@ -109,10 +135,21 @@ code directly, rather than assuming the code is broken.
 - `src/IBEBarcode.Web/wwwroot/help.html` — the in-app user help page
   (shared by Desktop, which copies the same file at build time). Update
   this when user-facing features change; it's meant to stay accurate to
-  what's actually shipped, not the original 2005 legacy manual.
+  what's actually shipped, not the original 2005 legacy manual. It is
+  written in English only, deliberately — it is the reference the four UI
+  translations are checked against.
 
 ## Known gaps (deliberate, not oversights)
 
+- **The in-app help page is English only.** The four UI languages cover
+  every caption, menu, button, status line and error message an app draws;
+  `wwwroot/help.html` (315 lines, shared by Desktop and Web) is still the
+  English original. Translating it means four HTML files kept in sync — a
+  follow-up, not an oversight.
+- **The Desktop app does not remember the chosen language** across runs,
+  because it has no settings file at all. It re-detects from the OS UI
+  language each launch. Persisting one preference would mean introducing
+  settings storage, which the project has so far deliberately avoided.
 - Data Matrix EDIFACT mode, and its one ZXing-special-cased size
   (`DataMatrixSymbolInfo144`).
 - Avery 22805 paper template — no source found with actual numeric specs

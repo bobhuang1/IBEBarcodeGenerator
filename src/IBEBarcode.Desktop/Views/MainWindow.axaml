@@ -8,7 +8,7 @@
         x:DataType="vm:MainViewModel"
         Icon="/Assets/ibe-icon.ico"
         Width="820" SizeToContent="Height"
-        Title="IBE Barcode Generator">
+        Title="{Binding S.AppTitle}">
 
     <Design.DataContext>
         <!-- This only sets the DataContext for the previewer in an IDE,
@@ -19,18 +19,24 @@
     <DockPanel>
         <!-- Menu bar -->
         <Menu DockPanel.Dock="Top">
-            <MenuItem Header="_File">
-                <MenuItem Header="Save Label Sheet PDF..." Click="OnSaveLabelSheetPdfClick" />
+            <MenuItem Header="{Binding S.File}">
+                <MenuItem Header="{Binding S.SaveLabelSheetPdf}" Click="OnSaveLabelSheetPdfClick" />
             </MenuItem>
-            <MenuItem Header="_Symbology">
+            <MenuItem Header="{Binding S.Symbology}">
                 <MenuItem Header="{Binding SelectedSymbology}" IsEnabled="False" />
             </MenuItem>
-            <MenuItem Header="_Tools">
-                <MenuItem Header="Rotate Left" Command="{Binding RotateLeftCommand}" />
-                <MenuItem Header="Rotate Right" Command="{Binding RotateRightCommand}" />
+            <MenuItem Header="{Binding S.Tools}">
+                <MenuItem Header="{Binding S.RotateLeft}" Command="{Binding RotateLeftCommand}" />
+                <MenuItem Header="{Binding S.RotateRight}" Command="{Binding RotateRightCommand}" />
             </MenuItem>
-            <MenuItem Header="_Help">
-                <MenuItem Header="IBE Barcode Generator Help" Click="OnHelpClick" />
+            <MenuItem Header="{Binding S.Language}">
+                <MenuItem Header="English" Click="OnLanguageClick" Tag="English" />
+                <MenuItem Header="简体中文" Click="OnLanguageClick" Tag="SimplifiedChinese" />
+                <MenuItem Header="繁體中文" Click="OnLanguageClick" Tag="TraditionalChinese" />
+                <MenuItem Header="日本語" Click="OnLanguageClick" Tag="Japanese" />
+            </MenuItem>
+            <MenuItem Header="{Binding S.Help}">
+                <MenuItem Header="{Binding S.GeneratorHelp}" Click="OnHelpClick" />
             </MenuItem>
         </Menu>
 
@@ -46,17 +52,17 @@
             <!-- Header: company logo + app title -->
             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <Image Source="/Assets/ibe-logo.jpg" Height="32" />
-                <TextBlock Text="IBE Barcode Generator" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding S.AppTitle}" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" />
             </StackPanel>
 
             <!-- Toolbar row: symbology + rotate + zoom + print preview -->
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <ComboBox ItemsSource="{Binding AvailableSymbologies}" SelectedItem="{Binding SelectedSymbology}" Width="160" />
-                <Button Content="&#8630; Rotate Left" Command="{Binding RotateLeftCommand}" />
-                <Button Content="Rotate Right &#8631;" Command="{Binding RotateRightCommand}" />
-                <Button Content="Zoom In (+)" Command="{Binding ZoomInCommand}" />
-                <Button Content="Zoom Out (-)" Command="{Binding ZoomOutCommand}" />
-                <Button Content="Save Label Sheet PDF..." Click="OnSaveLabelSheetPdfClick" />
+                <Button Content="{Binding S.RotateLeft}" Command="{Binding RotateLeftCommand}" />
+                <Button Content="{Binding S.RotateRight}" Command="{Binding RotateRightCommand}" />
+                <Button Content="{Binding S.ZoomIn}" Command="{Binding ZoomInCommand}" />
+                <Button Content="{Binding S.ZoomOut}" Command="{Binding ZoomOutCommand}" />
+                <Button Content="{Binding S.SaveLabelSheetPdf}" Click="OnSaveLabelSheetPdfClick" />
             </StackPanel>
 
             <!-- Font row -->
@@ -76,27 +82,27 @@
 
             <!-- Barcode value row: value / increment / quantity -->
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <CheckBox Content="Barcode Value" IsChecked="{Binding ShowBarcodeValue}" VerticalAlignment="Center" />
-                <TextBox Text="{Binding InputText}" Width="140" PlaceholderText="Value to encode" />
-                <TextBlock Text="Barcode Increment" VerticalAlignment="Center" Margin="8,0,0,0" />
+                <CheckBox Content="{Binding S.BarcodeValue}" IsChecked="{Binding ShowBarcodeValue}" VerticalAlignment="Center" />
+                <TextBox Text="{Binding InputText}" Width="140" PlaceholderText="{Binding S.ValueToEncode}" />
+                <TextBlock Text="{Binding S.BarcodeIncrement}" VerticalAlignment="Center" Margin="8,0,0,0" />
                 <NumericUpDown Value="{Binding BarcodeIncrement}" Width="100" />
-                <TextBlock Text="Quantity" VerticalAlignment="Center" Margin="8,0,0,0" />
+                <TextBlock Text="{Binding S.Quantity}" VerticalAlignment="Center" Margin="8,0,0,0" />
                 <NumericUpDown Value="{Binding Quantity}" Minimum="1" Maximum="1000" Width="100" />
             </StackPanel>
 
             <!-- User field row -->
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="User Field 1" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding S.UserField1}" VerticalAlignment="Center" />
                 <TextBox Text="{Binding UserField1}" Width="160" />
-                <TextBlock Text="User Field 2" VerticalAlignment="Center" Margin="8,0,0,0" />
+                <TextBlock Text="{Binding S.UserField2}" VerticalAlignment="Center" Margin="8,0,0,0" />
                 <TextBox Text="{Binding UserField2}" Width="140" />
-                <TextBlock Text="User Field 2 Increment" VerticalAlignment="Center" Margin="8,0,0,0" />
+                <TextBlock Text="{Binding S.UserField2Increment}" VerticalAlignment="Center" Margin="8,0,0,0" />
                 <NumericUpDown Value="{Binding UserField2Increment}" Width="100" />
             </StackPanel>
 
             <!-- Paper type row -->
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="Current Paper Type" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding S.CurrentPaperType}" VerticalAlignment="Center" />
                 <ComboBox ItemsSource="{Binding AvailableTemplates}" SelectedItem="{Binding SelectedTemplate}" Width="220" />
             </StackPanel>
 

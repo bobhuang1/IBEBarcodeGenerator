@@ -1,7 +1,11 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@implements IDisposable
+@using IBEBarcode.Localization
+@inject LanguageState LanguageState
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">IBE Barcode Generator</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+        <a class="navbar-brand" href="">@Strings.Get(LanguageState.Current).AppTitle</a>
+        <button title="@Strings.Get(LanguageState.Current).NavigationMenu" class="navbar-toggler" @onclick="ToggleNavMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
     </div>
@@ -11,24 +15,32 @@
     <nav class="nav flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> @Strings.Get(LanguageState.Current).Home
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <a class="nav-link" href="help.html" target="_blank">
-                <span class="bi bi-question-circle-fill-nav-menu" aria-hidden="true"></span> Help
+                <span class="bi bi-question-circle-fill-nav-menu" aria-hidden="true"></span> @Strings.Get(LanguageState.Current).Help
             </a>
         </div>
     </nav>
 </div>
 
 @code {
-    private bool collapseNavMenu = true;
+    private bool _collapseNavMenu = true;
 
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private string? NavMenuCssClass => _collapseNavMenu ? "collapse" : null;
+
+    // The page (Home) resolves the language on its first render — URL, then storage, then the
+    // browser's preference — and writes it here, so this menu only has to follow along.
+    protected override void OnInitialized() => LanguageState.Changed += OnLanguageChanged;
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => LanguageState.Changed -= OnLanguageChanged;
 
     private void ToggleNavMenu()
     {
-        collapseNavMenu = !collapseNavMenu;
+        _collapseNavMenu = !_collapseNavMenu;
     }
 }

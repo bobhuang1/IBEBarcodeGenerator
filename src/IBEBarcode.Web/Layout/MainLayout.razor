@@ -1,4 +1,8 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@using IBEBarcode.Localization
+@inject LanguageState LanguageState
+
 <div class="page">
     <div class="sidebar">
         <NavMenu />
@@ -6,7 +10,7 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">@Strings.Get(LanguageState.Current).About</a>
         </div>
 
         <article class="content px-4">
@@ -14,3 +18,11 @@
         </article>
     </main>
 </div>
+
+@code {
+    protected override void OnInitialized() => LanguageState.Changed += OnLanguageChanged;
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => LanguageState.Changed -= OnLanguageChanged;
+}

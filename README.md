@@ -13,6 +13,24 @@ preview and paper-template PDF label sheet export. See
 `docs/superpowers/specs/` for the architecture design and
 `docs/superpowers/plans/` for implementation plans (one per subsystem).
 
+## Languages
+
+Both apps ship in four languages — English, Simplified Chinese (简体中文),
+Traditional Chinese (繁體中文) and Japanese (日本語). The Desktop app picks
+one from the operating system's UI language and lets you change it from the
+**Language** menu; the Web app picks one from the browser's preferred
+languages and remembers your choice, with `?lang=ja`, `?lang=zh-Hans` or
+`?lang=zh-Hant` as an explicit override. Interface text changes language;
+the values you encode, the label captions you type and the paper template
+names do not.
+
+All four tables live in one shared library, `src/IBEBarcode.Localization`,
+as a `StringTable` record with `required` members, so a table that is missing
+a key does not compile and `tests/IBEBarcode.Localization.Tests` fails the
+build if a translation is left blank. Adding a string means adding it to all
+four tables — there is no resource-file tooling and no third-party
+i18n package.
+
 ## Solution layout
 
 - `src/IBEBarcode.Core` — barcode data models and custom-written encoders
@@ -33,6 +51,10 @@ preview and paper-template PDF label sheet export. See
 - `src/IBEBarcode.Rendering` — SkiaSharp renderers for all three pattern
   shapes: linear (`BarcodeRenderer`), 2D grid (`MatrixRenderer` for QR),
   and height-varying (`HeightBarRenderer` for Postnet).
+- `src/IBEBarcode.Localization` — the four-language interface strings
+  (`StringTable` + `Strings.Get(language)`), the `AppLanguage` enum and the
+  culture-name detection shared by both apps. No graphics or platform
+  dependency.
 - `src/IBEBarcode.Templates` — `PaperTemplate` model and a catalog of
   real-world label sheet layouts (Avery 5160, 5161, 5163, ...).
 - `src/IBEBarcode.Printing` — PdfSharp-based label sheet PDF generation
@@ -40,10 +62,12 @@ preview and paper-template PDF label sheet export. See
   identically on desktop .NET and in the browser under Blazor
   WebAssembly.
 - `src/IBEBarcode.Desktop` — Avalonia MVVM app (Windows/Linux/macOS): live
-  barcode preview and PDF label sheet export via a native save dialog.
+  barcode preview and PDF label sheet export via a native save dialog, in
+  all four languages.
 - `src/IBEBarcode.Web` — Blazor WebAssembly standalone app: the same live
   preview and PDF export, running entirely client-side in the browser (no
-  server, deployable as a static site).
+  server, deployable as a static site), with a language selector and the
+  choice kept in `localStorage`.
 - `tests/` — one xUnit test project per library project above.
 
 ## Build and test

@@ -1,21 +1,37 @@
 @page "/"
 @using IBEBarcode.Core
 @using IBEBarcode.Core.Encoders
+@using IBEBarcode.Localization
 @using IBEBarcode.Printing
 @using IBEBarcode.Rendering
 @using IBEBarcode.Templates
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Web
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject LanguageState LanguageState
 
-<PageTitle>IBE Barcode Generator</PageTitle>
+<PageTitle>@S.AppTitle</PageTitle>
 
-<h1>IBE Barcode Generator</h1>
+<h1>@S.AppTitle</h1>
 
 <div class="mb-3">
-    <label>Value to encode</label>
+    <label>@S.Language</label>
+    <select class="form-select" style="max-width:240px" value="@_selectedLanguageTag" @onchange="OnLanguageChanged">
+        @foreach (var language in AppLanguageExtensions.AllLanguages)
+        {
+            <option value="@language.CultureTag()" selected="@(language == LanguageState.Current)">@language.DisplayName()</option>
+        }
+    </select>
+</div>
+
+<div class="mb-3">
+    <label>@S.ValueToEncode</label>
     <input class="form-control" @bind="InputText" @bind:event="oninput" />
 </div>
 
 <div class="mb-3">
-    <label>Symbology</label>
+    <label>@S.Symbology.Replace("_", "")</label>
     <select class="form-select" @bind="SelectedSymbology">
         @foreach (var symbology in AvailableSymbologies)
         {
@@ -35,7 +51,7 @@
 }
 
 <div class="mb-3" style="margin-top:12px">
-    <label>Paper template</label>
+    <label>@S.PaperTemplate</label>
     <select class="form-select" @bind="SelectedTemplateCode">
         @foreach (var t in AvailableTemplates)
         {
@@ -44,7 +60,7 @@
     </select>
 </div>
 
-<button class="btn btn-primary" @onclick="GenerateLabelSheetPdf">Generate Label Sheet PDF</button>
+<button class="btn btn-primary" @onclick="GenerateLabelSheetPdf">@S.GenerateLabelSheetPdfButton</button>
 
 @if (PdfErrorMessage is not null)
 {
@@ -53,24 +69,16 @@
 
 @if (PdfDataUri is not null)
 {
-    <p><a href="@PdfDataUri" download="label-sheet.pdf">Download label-sheet.pdf</a> (@PdfByteCount bytes)</p>
+    <p><a href="@PdfDataUri" download="label-sheet.pdf">@S.DownloadLabelSheetPdf</a> (@PdfByteCount bytes)</p>
 }
 
 @code {
     private string _inputText = "HELLO123";
     private SupportedSymbology _selectedSymbology = SupportedSymbology.Code39;
+    private string _selectedLanguageTag = "en";
+    private bool _languageInitialized;
 
-    private string InputText
-    {
-        get => _inputText;
-        set { _inputText = value; Regenerate(); }
-    }
-
-    private SupportedSymbology SelectedSymbology
-    {
-        get => _selectedSymbology;
-        set { _selectedSymbology = value; Regenerate(); }
-    }
+    private StringTable S { get; set; } = Strings.Get(AppLanguage.English);
 
     private string? ErrorMessage;
     private string? PreviewImageDataUri;
@@ -92,6 +100,131 @@
     public IReadOnlyList<PaperTemplate> AvailableTemplates { get; } =
         PaperTemplateCatalog.AllTemplates;
 
+    private string InputText
+    {
+        get => _inputText;
+        set { _inputText = value; Regenerate(); }
+    }
+
+    private SupportedSymbology SelectedSymbology
+    {
+        get => _selectedSymbology;
+        set { _selectedSymbology = value; Regenerate(); }
+    }
+
+    private async Task OnLanguageChanged(ChangeEventArgs args)
+    {
+        var tag = args.Value?.ToString() ?? "en";
+        SetLanguage(AppLanguageExtensions.FromCultureName(tag));
+        await PersistLanguageAsync();
+    }
+
+    private void SetLanguage(AppLanguage language)
+    {
+        // Publish first: the sidebar and the About link in the layout listen for this.
+        LanguageState.Set(language);
+        _selectedLanguageTag = language.CultureTag();
+        S = Strings.Get(language);
+        _ = ApplyDocumentLanguageAsync();
+        Regenerate();
+    }
+
+    /// <summary>First render: ?lang=… wins, then the saved choice, then the browser's
+    /// preferred languages, then English. JS interop is available only now.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _languageInitialized)
+        {
+            return;
+        }
+
+        _languageInitialized = true;
+
+        AppLanguage language;
+        var queryTag = GetQueryLanguage();
+
+        if (queryTag is not null)
+        {
+            language = AppLanguageExtensions.FromCultureName(queryTag);
+        }
+        else
+        {
+            var stored = await TryGetStoredLanguageAsync();
+            language = stored is not null
+                ? AppLanguageExtensions.FromCultureName(stored)
+                : AppLanguageExtensions.FromPreferredLanguages(await TryGetPreferredLanguagesAsync());
+        }
+
+        // The layout components start on English too, so only a real change is worth publishing.
+        if (language != LanguageState.Current)
+        {
+            SetLanguage(language);
+            StateHasChanged();
+        }
+    }
+
+    private string? GetQueryLanguage()
+    {
+        try
+        {
+            var uri = new Uri(Navigation.Uri);
+            return System.Web.HttpUtility.ParseQueryString(uri.Query)["lang"];
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The saved language, or null when storage is unavailable (private mode) or
+    /// the helper script has not loaded. Interop in the first render is best-effort only.</summary>
+    private async Task<string?> TryGetStoredLanguageAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<string?>("ibeLang.get", "lang");
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task<string[]?> TryGetPreferredLanguagesAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<string[]>("ibeLang.preferredLanguages");
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task PersistLanguageAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("ibeLang.set", "lang", LanguageState.Current.CultureTag());
+        }
+        catch
+        {
+            // Storage unavailable (private mode etc.) — language still applies for the session.
+        }
+    }
+
+    private async Task ApplyDocumentLanguageAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("ibeLang.setDocumentLang", LanguageState.Current.CultureTag());
+        }
+        catch
+        {
+        }
+    }
+
     private void GenerateLabelSheetPdf()
     {
         PdfErrorMessage = null;
@@ -99,7 +232,7 @@
 
         if (_lastPngBytes is null)
         {
-            PdfErrorMessage = "Generate a valid barcode before exporting a label sheet.";
+            PdfErrorMessage = S.GenerateValidBarcodeFirst;
             return;
         }
 
@@ -107,7 +240,7 @@
 
         if (template is null)
         {
-            PdfErrorMessage = "Select a paper template before exporting a label sheet.";
+            PdfErrorMessage = S.SelectTemplateFirst;
             return;
         }
 
@@ -126,7 +259,7 @@
         }
         catch (Exception ex)
         {
-            PdfErrorMessage = $"PDF generation failed: {ex.GetType().Name}: {ex.Message}";
+            PdfErrorMessage = S.Format(S.PdfGenerationFailed, $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 
@@ -140,7 +273,7 @@
 
         if (string.IsNullOrEmpty(InputText))
         {
-            ErrorMessage = "Enter a value to encode.";
+            ErrorMessage = S.EnterValueToEncode;
             return;
         }
 
@@ -214,7 +347,7 @@
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Unexpected error: {ex.Message}";
+            ErrorMessage = S.Format(S.UnexpectedError, ex.Message);
         }
     }
 

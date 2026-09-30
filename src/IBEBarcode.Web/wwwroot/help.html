@@ -115,6 +115,7 @@
       <li><a href="#overview">Overview</a></li>
       <li><a href="#quickstart">Quick start</a></li>
       <li><a href="#window">Window layout</a></li>
+      <li><a href="#language">Language</a></li>
       <li><a href="#symbology">Choosing a symbology</a></li>
       <li><a href="#font">Font controls</a></li>
       <li><a href="#value">Barcode value, increment &amp; quantity</a></li>
@@ -177,6 +178,29 @@
         <figcaption>Fig. 1 — Row-by-row layout of the main window, top to bottom.</figcaption>
       </figure>
       <p>The window's height auto-fits its content, so a taller barcode or a higher zoom level never gets clipped at the bottom.</p>
+    </section>
+
+    <section id="language">
+      <h2>Language</h2>
+      <p>
+        The interface is available in <strong>English</strong>, <strong>简体中文</strong> (Simplified Chinese),
+        <strong>繁體中文</strong> (Traditional Chinese) and <strong>日本語</strong> (Japanese). Everything the
+        application itself draws — captions, menu items, buttons, the status bar and error messages — follows
+        the chosen language. Text you type, the barcode's own human-readable value, the User Field captions and
+        the paper template names are data, not interface text, so they stay exactly as you entered or chose
+        them.
+      </p>
+      <table>
+        <tr><th>Where</th><th>How to change it</th></tr>
+        <tr><td>Desktop</td><td><strong>Language</strong> in the menu bar, then pick a language. The choice applies to the current session.</td></tr>
+        <tr><td>Web</td><td>The <strong>Language</strong> dropdown above the preview. The browser remembers the choice for next time.</td></tr>
+      </table>
+      <p>
+        Until you choose, the application matches the operating system (Desktop) or the browser's preferred
+        languages (Web), falling back to English when none of the four is asked for. In the Web app you can
+        also force a language with the address: <code>?lang=ja</code>, <code>?lang=zh-Hans</code> or
+        <code>?lang=zh-Hant</code>.
+      </p>
     </section>
 
     <section id="symbology">
