@@ -132,6 +132,13 @@ code directly, rather than assuming the code is broken.
   (each format/feature that got a dedicated plan). Not every later
   extension has its own plan doc — check the relevant source file's
   history/comments if a plan doc doesn't cover something.
+- `src/IBEBarcode.Web/wwwroot/staticwebapp.config.json` — the Azure Static
+  Web App config for generator.ibebarcode.com. Its `globalHeaders` block (the
+  Content-Security-Policy and the cross-origin headers, which are this site's
+  CSRF and CORS controls) is **generated**, by `infra/security-headers.py
+  --config <this file> --profile blazor` in the `WebSites` repo. That script is
+  the single source of truth shared with the five marketing sites, so edit the
+  policy there and re-run it rather than hand-editing the block here.
 - `src/IBEBarcode.Web/wwwroot/help.html` — the in-app user help page
   (shared by Desktop, which copies the same file at build time). Update
   this when user-facing features change; it's meant to stay accurate to
