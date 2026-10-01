@@ -2,7 +2,7 @@
 
 Free, open-source, cross-platform barcode label generator — a from-scratch
 recreation of the discontinued "IBE Barcode Studio" (Windows/VB), released
-under the MIT license.
+under the GPL-3.0 license.
 
 ## Status
 
