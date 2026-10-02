@@ -12,7 +12,9 @@ on:
 jobs:
   test:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
-    runs-on: ubuntu-latest
+    # Windows: the rendering and printing tests load SkiaSharp's native library, and
+    # the test projects only reference the Windows native assets.
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -23,6 +25,7 @@ jobs:
       - name: Test
         # Test projects only: the solution also contains the Blazor WebAssembly app, which
         # needs the wasm-tools workload and has no tests of its own.
+        shell: bash
         run: |
           for project in tests/*/*.csproj; do
             dotnet test "$project" --configuration Release --blame-hang-timeout 2m
