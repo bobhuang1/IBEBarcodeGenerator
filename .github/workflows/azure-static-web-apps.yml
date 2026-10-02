@@ -21,7 +21,12 @@ jobs:
       # --blame-hang-timeout turns a hung test into a fast failure instead of a
       # six-hour runner timeout.
       - name: Test
-        run: dotnet test IBEBarcodeGenerator.slnx --configuration Release --blame-hang-timeout 2m
+        # Test projects only: the solution also contains the Blazor WebAssembly app, which
+        # needs the wasm-tools workload and has no tests of its own.
+        run: |
+          for project in tests/*/*.csproj; do
+            dotnet test "$project" --configuration Release --blame-hang-timeout 2m
+          done
 
   build_and_deploy_job:
     needs: test
