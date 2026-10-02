@@ -18,14 +18,14 @@ public class LabelSheetPdfGeneratorTests
         return BarcodeRenderer.RenderToPng(pattern!, new BarcodeRenderOptions { ModuleWidthPixels = 1, QuietZoneModules = 0, BarHeightPixels = 10 });
     }
 
-    private static PaperTemplate SmallTemplate() => new()
+    private static PaperTemplate SmallTemplate(int rows = 2) => new()
     {
         Vendor = "Test",
         Code = "T1",
         PageWidthMm = 100,
         PageHeightMm = 100,
         Columns = 2,
-        Rows = 2,
+        Rows = rows,
         LabelWidthMm = 40,
         LabelHeightMm = 30,
         TopMarginMm = 10,
@@ -53,6 +53,14 @@ public class LabelSheetPdfGeneratorTests
 
         Assert.True(pdfBytes.Length > 50);
         Assert.Equal((byte)'%', pdfBytes[0]);
+    }
+
+    [Fact]
+    public void Generate_WithZeroRowTemplate_Throws()
+    {
+        var template = SmallTemplate(rows: 0);
+
+        Assert.Throws<ArgumentException>(() => LabelSheetPdfGenerator.Generate(template, new[] { TinyPng }));
     }
 
     [Fact]

@@ -10,6 +10,18 @@ on:
   workflow_dispatch:
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      # --blame-hang-timeout turns a hung test into a fast failure instead of a
+      # six-hour runner timeout.
+      - name: Test
+        run: dotnet test IBEBarcodeGenerator.slnx --configuration Release --blame-hang-timeout 2m
+
   determine-version:
     runs-on: ubuntu-latest
     outputs:
@@ -35,7 +47,7 @@ jobs:
           echo "is_release=$is_release" >> "$GITHUB_OUTPUT"
 
   build:
-    needs: determine-version
+    needs: [test, determine-version]
     strategy:
       fail-fast: false
       matrix:

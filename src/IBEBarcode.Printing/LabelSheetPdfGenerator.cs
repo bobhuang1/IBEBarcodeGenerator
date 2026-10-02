@@ -16,10 +16,21 @@ public static class LabelSheetPdfGenerator
     /// </summary>
     public static byte[] Generate(PaperTemplate template, IReadOnlyList<byte[]> labelPngImages)
     {
+        if (template.Rows <= 0 || template.Columns <= 0)
+        {
+            throw new ArgumentException(
+                $"Template {template.Code} must have at least one row and one column.", nameof(template));
+        }
+
         var document = new PdfDocument();
         var index = 0;
 
-        while (index < labelPngImages.Count || index == 0)
+        // Always at least one page, so an empty batch still yields a valid (blank) sheet.
+        // Counting pages up front keeps the loop bounded: the previous
+        // "index < Count || index == 0" condition never advanced for an empty list.
+        var pageCount = Math.Max(1, (labelPngImages.Count + template.LabelCount - 1) / template.LabelCount);
+
+        for (var pageNumber = 0; pageNumber < pageCount; pageNumber++)
         {
             var page = document.AddPage();
             page.Width = XUnit.FromPoint(template.PageWidthMm * PointsPerMillimeter);
