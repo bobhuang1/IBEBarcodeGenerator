@@ -10,6 +10,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  # The budget guard's own tests, on every run. Most of what they assert is the
+  # wiring — that every upload in this repository is measured first and expires
+  # inside a week — so an invariant nobody exercises would just be a comment.
+  artifact-budget:
+    name: Artifact budget guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test the guard
+        # PyYAML reads the workflow files for the wiring check; the runner image
+        # normally has it, and installing it is cheaper than skipping the check.
+        run: |
+          python3 -c 'import yaml' || pip3 install --quiet pyyaml
+          bash scripts/artifact-budget.test.sh
+
   test:
     # Windows: the rendering and printing tests load SkiaSharp's native library, and
     # the test projects only reference the Windows native assets.
@@ -55,7 +70,10 @@ jobs:
           echo "is_release=$is_release" >> "$GITHUB_OUTPUT"
 
   build:
-    needs: [test, determine-version]
+    # `artifact-budget` gates the build so that a guard whose wiring broke stops
+    # the installers being stored at all: the tests are the only thing checking
+    # that this job still measures before it uploads.
+    needs: [artifact-budget, test, determine-version]
     strategy:
       fail-fast: false
       matrix:
@@ -199,12 +217,67 @@ jobs:
 
           dpkg-deb --build --root-owner-group "$PKGROOT" "${APP_NAME}-${VERSION}-${{ matrix.rid }}.deb"
 
+      # ---------------- Artifact budget ----------------
+
+      # These installers are the most expensive thing on the account's artifact
+      # meter: 436.8 MB for this run across the five RIDs, 87% of a month's
+      # 500 MB allowance, held seven days. That is what spent the October
+      # allowance — three runs in two days put 1.31 GB in flight and the month
+      # was gone before anything expired, which then refused uploads in a sibling
+      # repository holding no artifacts at all. `scripts/artifact-budget.mjs`
+      # carries the arithmetic; this step measures the files it is about to store
+      # and refuses before the meter is spent rather than after.
+      #
+      # The budget is per RID because one job can only see its own files, and it
+      # is derived from the run:
+      #   - push build — the run gets a fifth of the month in total, so 20 MiB
+      #     each. That is less than any RID costs, so a push build stores no
+      #     installers; the build itself is the signal and the log is the record.
+      #   - tag build — the release, whose installers ARE the product. Each RID
+      #     gets the whole fifth (100 MiB, ~437 MB for the run = 20% of the
+      #     allowance in GB-hr at 7 days), printed on every release.
+      #
+      # Only an over-budget verdict is downgraded to a warning. A usage error
+      # (exit 2) still fails the job: a guard that cannot measure must not read
+      # as "inside the budget".
+      - name: Check the artifact budget
+        id: budget
+        shell: bash
+        env:
+          IS_RELEASE: ${{ needs.determine-version.outputs.is_release }}
+        run: |
+          set -euo pipefail
+          if [ "$IS_RELEASE" = "true" ]; then budget=100; else budget=20; fi
+          status=0
+          node scripts/artifact-budget.mjs \
+            --label "$APP_NAME ${{ matrix.rid }}" \
+            --budget-mb "$budget" \
+            --retention-days 7 \
+            "$APP_NAME-*.zip" \
+            "$APP_NAME-*.tar.gz" \
+            "$APP_NAME-*.msi" \
+            "$APP_NAME-*.dmg" \
+            "$APP_NAME-*.deb" || status=$?
+          if [ "$status" -eq 1 ]; then
+            echo "::warning title=Artifact budget::${{ matrix.rid }} was not stored: it is over this run's ${budget} MiB share of the account's artifact allowance. The step above says by how much."
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+
       # ---------------- Upload ----------------
 
+      # `retention-days` is stated rather than inherited: seven is both what the
+      # budget above projects its cost with and the shortest the run page needs
+      # to be useful, and every day held is a day of the allowance the next run
+      # needs.
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
+        # Skipped when the budget says no: storing these files is what spends the
+        # meter, and the warning above is the record of it.
+        if: steps.budget.outputs.over-budget != 'true'
         with:
           name: ${{ env.APP_NAME }}-${{ matrix.rid }}
+          retention-days: 7
           path: |
             ${{ env.APP_NAME }}-*.zip
             ${{ env.APP_NAME }}-*.tar.gz

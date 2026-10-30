@@ -115,6 +115,21 @@ all ten artifacts to a GitHub Release. No secrets are required. The
 Windows MSI is built with WiX v5, pinned below WiX v7's paid Open
 Source Maintenance Fee requirement.
 
+Those installers are the most expensive thing this account stores. GitHub
+artifact storage is a single 500 MB monthly allowance shared by every
+repository the owner has — not a quota per repository — and held storage is
+metered in GB-hours, so a run that stores 437 MB for a week takes a fifth of
+the month on its own. Three runs in October did exactly that, spent the
+allowance, and uploads in unrelated repositories were refused until the cycle
+reset. So `.github/workflows/desktop-release.yml` now measures each target with
+`scripts/artifact-budget.mjs` before storing it: a push build's whole run is
+given a fifth of the month, 20 MiB per target, which no target fits inside —
+**push builds therefore store no installers** (the build and its log are the
+record), while a tag build's installers are the release and get the fifth each
+(100 MiB). An over-budget upload is skipped with a warning naming the overage
+rather than left to discover the quota later. `scripts/artifact-budget.test.sh`
+holds that wiring in place, and CI runs it.
+
 ## License
 
 This project is free software, released under the **GNU General Public License v3.0**. You may redistribute and/or modify it under those terms; see [LICENSE.md](LICENSE.md) for the full text.
